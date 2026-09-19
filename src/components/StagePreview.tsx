@@ -988,9 +988,6 @@ function CanvasImageLayer({ canvasImage, canvasW, canvasH, onDragStart, onDragEn
   const lockedObjects = useStudio(s => s.lockedObjects);
   const selected = useStudio(s => s.selection?.kind === 'canvasImage' && (s.selection.id === canvasImage.id || s.selection.ids?.includes(canvasImage.id)));
   
-  const asset = project.assets.find(a => a.id === canvasImage.assetId);
-  if (!asset) return null;
-  
   const x = canvasImage.x * canvasW;
   const y = canvasImage.y * canvasH;
   const width = canvasImage.width * canvasW;
@@ -1000,6 +997,9 @@ function CanvasImageLayer({ canvasImage, canvasW, canvasH, onDragStart, onDragEn
   const resizeRef = useRef<{ sx: number; sy: number; ow: number; oh: number; ox: number; oy: number; direction: string } | null>(null);
   const rotateRef = useRef<{ sx: number; sy: number; startAngle: number } | null>(null);
   const isLocked = lockedObjects.has(`canvasImage:${canvasImage.id}`);
+  
+  const asset = project.assets.find(a => a.id === canvasImage.assetId);
+  if (!asset) return null;
   
   const onDown = (e: RPointerEvent<HTMLDivElement>) => {
     e.stopPropagation();
@@ -1856,6 +1856,35 @@ export function StagePreview({ toolMode = 'select', onContextMenu }: { toolMode?
                       height: t.fontSize * 1.5
                     }))
                   ];
+                }
+              } else if (selection.kind === 'canvasImage') {
+                const selectedCanvasImage = p.canvasImages?.find(img => img.id === selection.id);
+                if (selectedCanvasImage) {
+                  const asset = p.assets.find(a => a.id === selectedCanvasImage.assetId);
+                  if (asset) {
+                    const imgW = selectedCanvasImage.width * p.canvas.w;
+                    const imgH = selectedCanvasImage.height * p.canvas.h;
+                    selectedObject = {
+                      x: selectedCanvasImage.x * p.canvas.w,
+                      y: selectedCanvasImage.y * p.canvas.h,
+                      width: imgW,
+                      height: imgH
+                    };
+                    otherObjects = [
+                      ...p.devices.map(d => ({
+                        x: d.x,
+                        y: d.y,
+                        width: d.w,
+                        height: d.w / DEVICE_META[d.kind].aspect
+                      })),
+                      ...(p.canvasImages || []).filter(img => img.id !== selection.id).map(img => ({
+                        x: img.x * p.canvas.w,
+                        y: img.y * p.canvas.h,
+                        width: img.width * p.canvas.w,
+                        height: img.height * p.canvas.h
+                      }))
+                    ];
+                  }
                 }
               }
 
