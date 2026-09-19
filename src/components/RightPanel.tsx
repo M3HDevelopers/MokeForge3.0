@@ -407,23 +407,23 @@ function QuickActions() {
         console.log('Send Backward clicked, selection:', selection);
         checkpoint(); 
         if (selection.kind === 'device' && selection.id) { 
-          update(p => ({ ...p, devices: p.devices.map(d => d.id === selection.id ? { ...d, z: d.z - 1 } : d) })); 
+          update(p => ({ ...p, devices: p.devices.map(d => d.id === selection.id ? { ...d, z: Math.max(0, d.z - 1) } : d) })); 
           toast('Sent backward'); 
         } else if (selection.kind === 'canvasImage' && selection.id) {
           console.log('Canvas image send backward, id:', selection.id);
-          update(p => ({ ...p, canvasImages: (p.canvasImages || []).map(img => img.id === selection.id ? { ...img, z: img.z - 1 } : img) }));
+          update(p => ({ ...p, canvasImages: (p.canvasImages || []).map(img => img.id === selection.id ? { ...img, z: Math.max(0, img.z - 1) } : img) }));
           toast('Sent backward');
         } else if (selection.kind === 'icon' && selection.id) {
           console.log('Icon send backward, id:', selection.id);
-          update(p => ({ ...p, icons: p.icons.map(i => i.id === selection.id ? { ...i, z: (i.z || 0) - 1 } : i) }));
+          update(p => ({ ...p, icons: p.icons.map(i => i.id === selection.id ? { ...i, z: Math.max(0, (i.z || 0) - 1) } : i) }));
           toast('Sent backward');
         } else if (selection.kind === 'deco' && selection.id) {
           console.log('Deco send backward, id:', selection.id);
-          update(p => ({ ...p, decos: p.decos.map(d => d.id === selection.id ? { ...d, z: (d.z || 0) - 1 } : d) }));
+          update(p => ({ ...p, decos: p.decos.map(d => d.id === selection.id ? { ...d, z: Math.max(0, (d.z || 0) - 1) } : d) }));
           toast('Sent backward');
         } else if (selection.kind === 'textbox' && selection.id) {
           console.log('Textbox send backward, id:', selection.id);
-          update(p => ({ ...p, textboxes: p.textboxes.map(t => t.id === selection.id ? { ...t, z: (t.z || 0) - 1 } : t) }));
+          update(p => ({ ...p, textboxes: p.textboxes.map(t => t.id === selection.id ? { ...t, z: Math.max(0, (t.z || 0) - 1) } : t) }));
           toast('Sent backward');
         }
       }} title="Send Backward">

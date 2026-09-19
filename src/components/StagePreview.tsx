@@ -117,7 +117,7 @@ function DecoLayer({ deco, canvasW, canvasH, onDragStart, onDragEnd }: { deco: a
           deco.glow ? `drop-shadow(0 0 12px ${deco.hue || '#ffffff'})` : '',
         ].filter(Boolean).join(' ') || undefined,
         pointerEvents: 'auto',
-        zIndex: selected ? 100 : 1,
+        zIndex: selected ? 100 : (deco.z || 1),
       }}
       onPointerDown={onDown}
       onPointerMove={onMove}
@@ -754,6 +754,7 @@ function IconLayer({ icon, canvasW, canvasH, onDragStart, onDragEnd }: { icon: I
         height: size,
         transform: `rotate(${icon.rotation}deg)`,
         opacity: icon.opacity,
+        zIndex: selected ? 100 : (icon.z || 1),
       }}
       onPointerDown={onDown}
       onPointerMove={onMove}
@@ -917,7 +918,7 @@ function TextBoxLayer({ textbox, canvasW, canvasH, onDragStart, onDragEnd }: { t
         boxShadow: textbox.shadow ? '0 4px 12px rgba(0,0,0,0.3)' : textbox.glow ? `0 0 20px ${textbox.glowColor}` : undefined,
         filter: textbox.glow ? `drop-shadow(0 0 12px ${textbox.glowColor})` : undefined,
         pointerEvents: 'auto',
-        zIndex: selected ? 100 : 1,
+        zIndex: selected ? 100 : (textbox.z || 1),
       }}
       onPointerDown={onDown}
       onPointerMove={onMove}
