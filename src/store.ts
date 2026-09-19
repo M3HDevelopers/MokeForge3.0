@@ -8,73 +8,7 @@ import {
 } from './templates';
 import { COMPOSITIONS, generateDesign, generateVariations, responsiveShowcase, scoreDesign } from './engine';
 import { makeThumbnail } from './renderer';
-
-const LS_PROJECTS = 'mockforge.projects.v1';
-const LS_STATS = 'mockforge.stats.v1';
-const LS_FAVS = 'mockforge.favorites.v1';
-
-/* ---------- image helpers ---------- */
-export function fileToAsset(file: File): Promise<Asset> {
-  return new Promise((resolve, reject) => {
-    const url = URL.createObjectURL(file);
-    const img = new Image();
-    img.onload = () => {
-      try {
-        const max = 1600;
-        const sc = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight));
-        const w = Math.max(1, Math.round(img.naturalWidth * sc));
-        const h = Math.max(1, Math.round(img.naturalHeight * sc));
-        const c = document.createElement('canvas');
-        c.width = w; c.height = h;
-        const ctx = c.getContext('2d')!;
-        ctx.drawImage(img, 0, 0, w, h);
-        const isPng = file.type === 'image/png' || file.type === 'image/svg+xml';
-        const dataUrl = isPng && file.size < 900_000 ? c.toDataURL('image/png') : c.toDataURL('image/jpeg', 0.86);
-        resolve({ id: uid(), name: file.name.replace(/\.[^.]+$/, ''), dataUrl, w, h });
-      } catch (e) { reject(e); }
-      URL.revokeObjectURL(url);
-    };
-    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Could not read image')); };
-    img.src = url;
-  });
-}
-
-export function urlToAsset(url: string, name: string): Promise<Asset> {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.crossOrigin = 'anonymous';
-    img.onload = () => {
-      try {
-        const max = 1600;
-        const sc = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight));
-        const w = Math.max(1, Math.round(img.naturalWidth * sc));
-        const h = Math.max(1, Math.round(img.naturalHeight * sc));
-        const c = document.createElement('canvas');
-        c.width = w; c.height = h;
-        c.getContext('2d')!.drawImage(img, 0, 0, w, h);
-        resolve({ id: uid(), name, dataUrl: c.toDataURL('image/jpeg', 0.88), w, h });
-      } catch (e) { reject(e); }
-    };
-    img.onerror = () => reject(new Error('fetch failed'));
-    img.src = url;
-  });
-}
-
-/* classify a screenshot by aspect ratio (heuristic, user can override) */
-export function classifyAsset(a: Asset): 'desktop' | 'tablet' | 'mobile' {
-  const r = a.w / a.h;
-  if (r > 1.25) return 'desktop';
-  if (r >= 0.7) return 'tablet';
-  return 'mobile';
-}
-
-function loadStats(): { totalExports: number } {
-  try { return JSON.parse(localStorage.getItem(LS_STATS) || '{"totalExports":0}'); }
-  catch { return { totalExports: 0 }; }
-}
-function loadFavs(): DesignSnapshot[] {
-  try { return JSON.parse(localStorage.getItem(LS_FAVS) || '[]'); } catch { return []; }
-}
+import { projectsAPI } from './services/api';
 
 let saveTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -93,6 +27,7 @@ interface StudioState {
   exportOpen: boolean;
   toasts: Toast[];
   totalExports: number;
+  loadingProjects: boolean;
 
   /* new: generation */
   mood: Mood;
@@ -118,17 +53,18 @@ interface StudioState {
   themeVariations: import('./utils/colorExtraction').ThemeVariation[];
   setThemeVariations: (variations: import('./utils/colorExtraction').ThemeVariation[]) => void;
 
-  boot: () => void;
+  boot: () => Promise<void>;
+  loadProjects: () => Promise<void>;
   goto: (v: 'dashboard' | 'editor') => void;
   toast: (msg: string, tone?: Toast['tone']) => void;
   dismissToast: (id: number) => void;
 
-  createProject: (name: string, type: string, cw: number, ch: number, quickKind?: DeviceKind) => void;
-  openProject: (id: string) => void;
+  createProject: (name: string, type: string, cw: number, ch: number, quickKind?: DeviceKind) => Promise<void>;
+  openProject: (id: string) => Promise<void>;
   closeEditor: () => void;
-  deleteProject: (id: string) => void;
-  duplicateProject: (id: string) => void;
-  importProject: (p: Project) => void;
+  deleteProject: (id: string) => Promise<void>;
+  duplicateProject: (id: string) => Promise<void>;
+  importProject: (p: Project) => Promise<void>;
 
   checkpoint: () => void;
   update: (fn: (p: Project) => Project, history?: boolean) => void;
@@ -193,7 +129,7 @@ interface StudioState {
   exportMockup: () => void;
   importMockup: (file: File) => Promise<void>;
 
-  save: (silent?: boolean) => void;
+  save: (silent?: boolean) => Promise<void>;
   setZoom: (z: number) => void;
   setSelection: (s: Selection | null) => void;
   addToSelection: (kind: Selection['kind'], id: string) => void;
@@ -212,6 +148,61 @@ function mergeSnapshot(cur: Project, s: DesignSnapshot): Project {
   return migrate({ ...s.project, id: cur.id, name: cur.name, assets: cur.assets, thumbnail: cur.thumbnail, exportCount: cur.exportCount });
 }
 
+/* ---------- image helpers ---------- */
+export function fileToAsset(file: File): Promise<Asset> {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      try {
+        const max = 1600;
+        const sc = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight));
+        const w = Math.max(1, Math.round(img.naturalWidth * sc));
+        const h = Math.max(1, Math.round(img.naturalHeight * sc));
+        const c = document.createElement('canvas');
+        c.width = w; c.height = h;
+        const ctx = c.getContext('2d')!;
+        ctx.drawImage(img, 0, 0, w, h);
+        const isPng = file.type === 'image/png' || file.type === 'image/svg+xml';
+        const dataUrl = isPng && file.size < 900_000 ? c.toDataURL('image/png') : c.toDataURL('image/jpeg', 0.86);
+        resolve({ id: uid(), name: file.name.replace(/\.[^.]+$/, ''), dataUrl, w, h });
+      } catch (e) { reject(e); }
+      URL.revokeObjectURL(url);
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Could not read image')); };
+    img.src = url;
+  });
+}
+
+export function urlToAsset(url: string, name: string): Promise<Asset> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      try {
+        const max = 1600;
+        const sc = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight));
+        const w = Math.max(1, Math.round(img.naturalWidth * sc));
+        const h = Math.max(1, Math.round(img.naturalHeight * sc));
+        const c = document.createElement('canvas');
+        c.width = w; c.height = h;
+        c.getContext('2d')!.drawImage(img, 0, 0, w, h);
+        resolve({ id: uid(), name, dataUrl: c.toDataURL('image/jpeg', 0.88), w, h });
+      } catch (e) { reject(e); }
+    };
+    img.onerror = () => reject(new Error('fetch failed'));
+    img.src = url;
+  });
+}
+
+/* classify a screenshot by aspect ratio (heuristic, user can override) */
+export function classifyAsset(a: Asset): 'desktop' | 'tablet' | 'mobile' {
+  const r = a.w / a.h;
+  if (r > 1.25) return 'desktop';
+  if (r >= 0.7) return 'tablet';
+  return 'mobile';
+}
+
 export const useStudio = create<StudioState>((set, get) => ({
   booted: false,
   view: 'dashboard',
@@ -226,12 +217,13 @@ export const useStudio = create<StudioState>((set, get) => ({
   zoom: 0.5,
   exportOpen: false,
   toasts: [],
-  totalExports: loadStats().totalExports,
+  totalExports: 0,
+  loadingProjects: false,
 
   mood: 'auto',
   locks: { devices: false, background: false, decoration: false, text: false, logo: false },
   history: [],
-  favorites: loadFavs(),
+  favorites: [],
   variations: [],
   variationsOpen: false,
   genOpen: false,
@@ -285,6 +277,12 @@ export const useStudio = create<StudioState>((set, get) => ({
         data = { ...deco };
         type = 'deco';
       }
+    } else if (selection.kind === 'canvasImage') {
+      const canvasImage = project.canvasImages?.find(img => img.id === selection.id);
+      if (canvasImage) {
+        data = { ...canvasImage };
+        type = 'canvasImage';
+      }
     }
     
     if (data) {
@@ -335,6 +333,13 @@ export const useStudio = create<StudioState>((set, get) => ({
           decos: [...s.project.decos, newData]
         } : null
       }));
+    } else if (clipboard.type === 'canvasImage') {
+      set(s => ({
+        project: s.project ? {
+          ...s.project,
+          canvasImages: [...(s.project.canvasImages || []), newData]
+        } : null
+      }));
     }
     
     get().toast('Pasted from clipboard');
@@ -358,10 +363,24 @@ export const useStudio = create<StudioState>((set, get) => ({
     get().toast('Object unlocked');
   },
   
-  boot: () => {    if (get().booted) return;
-    let projects: Project[] = [];
-    try { projects = (JSON.parse(localStorage.getItem(LS_PROJECTS) || '[]') as Project[]).map(migrate); } catch { /* corrupted */ }
-    set({ projects, booted: true });
+  boot: async () => {
+    if (get().booted) return;
+    set({ booted: true });
+    await get().loadProjects();
+  },
+
+  loadProjects: async () => {
+    set({ loadingProjects: true });
+    try {
+      const response = await projectsAPI.getAll();
+      if (response.success) {
+        const projects = response.projects.map((p: any) => migrate(p));
+        set({ projects, loadingProjects: false });
+      }
+    } catch (error) {
+      console.error('Failed to load projects:', error);
+      set({ loadingProjects: false });
+    }
   },
 
   goto: (v) => {
@@ -376,43 +395,92 @@ export const useStudio = create<StudioState>((set, get) => ({
   },
   dismissToast: (id) => set(s => ({ toasts: s.toasts.filter(t => t.id !== id) })),
 
-  createProject: (name, type, cw, ch, quickKind) => {
+  createProject: async (name, type, cw, ch, quickKind) => {
     const p = makeDefaultProject(name || 'Untitled project', type, cw, ch);
     if (quickKind) {
       const { w, h } = p.canvas;
       p.devices = [makeDevice(quickKind, w, h, null, 0)];
     }
-    set(s => ({ projects: [p, ...s.projects], project: p, view: 'editor', selection: { kind: 'device', id: p.devices[0]?.id }, past: [], future: [], dirty: false, savedAt: null, zoom: 0.5 }));
+    
+    try {
+      const response = await projectsAPI.create(p);
+      if (response.success) {
+        const newProject = migrate(response.project);
+        set(s => ({ 
+          projects: [newProject, ...s.projects], 
+          project: newProject, 
+          view: 'editor', 
+          selection: { kind: 'device', id: newProject.devices[0]?.id }, 
+          past: [], 
+          future: [], 
+          dirty: false, 
+          savedAt: null, 
+          zoom: 0.5 
+        }));
+        get().toast('Project created');
+      }
+    } catch (error) {
+      get().toast('Failed to create project', 'err');
+    }
   },
 
-  openProject: (id) => {
-    const p = get().projects.find(x => x.id === id);
-    if (!p) return;
-    set({ project: migrate(JSON.parse(JSON.stringify(p))), view: 'editor', selection: { kind: 'device', id: p.devices[0]?.id }, past: [], future: [], dirty: false, savedAt: p.updatedAt, zoom: 0.5 });
+  openProject: async (id) => {
+    try {
+      const response = await projectsAPI.getOne(id);
+      if (response.success) {
+        const project = migrate(response.project);
+        set({ 
+          project, 
+          view: 'editor', 
+          selection: { kind: 'device', id: project.devices[0]?.id }, 
+          past: [], 
+          future: [], 
+          dirty: false, 
+          savedAt: project.updatedAt, 
+          zoom: 0.5 
+        });
+      }
+    } catch (error) {
+      get().toast('Failed to open project', 'err');
+    }
   },
 
   closeEditor: () => { get().save(true); get().goto('dashboard'); },
 
-  deleteProject: (id) => {
-    set(s => ({ projects: s.projects.filter(p => p.id !== id) }));
-    persist(get().projects);
-    get().toast('Project deleted', 'info');
+  deleteProject: async (id) => {
+    try {
+      await projectsAPI.delete(id);
+      set(s => ({ projects: s.projects.filter(p => p.id !== id) }));
+      get().toast('Project deleted', 'info');
+    } catch (error) {
+      get().toast('Failed to delete project', 'err');
+    }
   },
 
-  duplicateProject: (id) => {
-    const p = get().projects.find(x => x.id === id);
-    if (!p) return;
-    const copy: Project = JSON.parse(JSON.stringify(p));
-    copy.id = uid(); copy.name = `${p.name} copy`; copy.createdAt = Date.now(); copy.updatedAt = Date.now();
-    set(s => ({ projects: [copy, ...s.projects] }));
-    persist(get().projects);
-    get().toast('Project duplicated');
+  duplicateProject: async (id) => {
+    try {
+      const response = await projectsAPI.duplicate(id);
+      if (response.success) {
+        const copy = migrate(response.project);
+        set(s => ({ projects: [copy, ...s.projects] }));
+        get().toast('Project duplicated');
+      }
+    } catch (error) {
+      get().toast('Failed to duplicate project', 'err');
+    }
   },
 
-  importProject: (p) => {
-    set(s => ({ projects: [{ ...migrate(p), id: uid() }, ...s.projects] }));
-    persist(get().projects);
-    get().toast('Project imported');
+  importProject: async (p) => {
+    try {
+      const response = await projectsAPI.create(migrate(p));
+      if (response.success) {
+        const newProject = migrate(response.project);
+        set(s => ({ projects: [newProject, ...s.projects] }));
+        get().toast('Project imported');
+      }
+    } catch (error) {
+      get().toast('Failed to import project', 'err');
+    }
   },
 
   checkpoint: () => {
@@ -525,7 +593,7 @@ export const useStudio = create<StudioState>((set, get) => ({
       const offset = p.devices.length * 24;
       d.x = clamp(d.x + offset, 0, p.canvas.w - d.w);
       d.y = clamp(d.y + offset, 0, p.canvas.h - d.w / DEVICE_META[kind].aspect);
-      d.z = p.devices.length;
+      d.z = 100 + p.devices.length;
       return { ...p, devices: [...p.devices, d] };
     });
     const p = get().project!;
@@ -606,6 +674,7 @@ export const useStudio = create<StudioState>((set, get) => ({
         shadow: false,
         glow: false,
         glowColor: '#ff6b3d',
+        z: p.textboxes.length + 1,
       }],
     }));
     set({ selection: { kind: 'textbox', id } });
@@ -615,7 +684,7 @@ export const useStudio = create<StudioState>((set, get) => ({
     get().update(p => ({ ...p, textboxes: p.textboxes.filter(t => t.id !== id) }));
     set(s => s.selection?.id === id ? { selection: null } : s);
   },
-  
+
   addCanvasImage: (assetId, x, y) => {
     const id = uid();
     const project = get().project;
@@ -626,7 +695,6 @@ export const useStudio = create<StudioState>((set, get) => ({
     
     // Calculate initial size - use actual screenshot size, max 50% of canvas
     const aspectRatio = asset.w / asset.h;
-    const canvasAspect = project.canvas.w / project.canvas.h;
     
     // Calculate size to fit actual screenshot dimensions
     let initialWidth = Math.min(0.5, asset.w / project.canvas.w);
@@ -644,7 +712,7 @@ export const useStudio = create<StudioState>((set, get) => ({
     
     get().update(p => ({
       ...p,
-      canvasImages: [...p.canvasImages, {
+      canvasImages: [...(p.canvasImages || []), {
         id,
         assetId,
         x: posX,
@@ -669,19 +737,20 @@ export const useStudio = create<StudioState>((set, get) => ({
         blur: 0,
         hue: 0,
         visible: true,
-        z: p.canvasImages.length,
+        z: (p.canvasImages?.length || 0) + 1,
       }],
     }));
     set({ selection: { kind: 'canvasImage', id } });
     get().toast('Image added to canvas');
   },
-  
+
   removeCanvasImage: (id) => {
-    get().update(p => ({ ...p, canvasImages: p.canvasImages.filter(img => img.id !== id) }));
+    get().update(p => ({ ...p, canvasImages: (p.canvasImages || []).filter(img => img.id !== id) }));
     set(s => s.selection?.id === id ? { selection: null } : s);
   },
-  
-  addIconsAroundDevice: (deviceId, iconIds) => {    const cur = get().project;
+
+  addIconsAroundDevice: (deviceId, iconIds) => {
+    const cur = get().project;
     if (!cur) return;
     const device = cur.devices.find(d => d.id === deviceId);
     if (!device) return;
@@ -706,6 +775,7 @@ export const useStudio = create<StudioState>((set, get) => ({
         bgColor: cur.accents.a1,
         shadow: true,
         glow: false,
+        z: cur.icons.length + i + 1,
       };
     });
     
@@ -769,7 +839,7 @@ export const useStudio = create<StudioState>((set, get) => ({
     get().update(p => {
       const d = p.devices.find(x => x.id === id);
       if (!d) return p;
-      const copy = { ...d, id: uid(), name: `${d.name} copy`, x: d.x + 28, y: d.y + 28, z: p.devices.length };
+      const copy = { ...d, id: uid(), name: `${d.name} copy`, x: d.x + 28, y: d.y + 28, z: 100 + p.devices.length };
       return { ...p, devices: [...p.devices, copy] };
     });
     const p = get().project!;
@@ -783,12 +853,12 @@ export const useStudio = create<StudioState>((set, get) => ({
       if (i < 0 || j < 0 || j >= p.devices.length) return p;
       const arr = [...p.devices];
       [arr[i], arr[j]] = [arr[j], arr[i]];
-      return { ...p, devices: arr.map((d, k) => ({ ...d, z: k })) };
+      return { ...p, devices: arr.map((d, k) => ({ ...d, z: 100 + k })) };
     });
   },
 
   setDeviceZ: (id, z) => {
-    get().update(p => ({ ...p, devices: p.devices.map(d => d.id === id ? { ...d, z } : d) }), false);
+    get().update(p => ({ ...p, devices: p.devices.map(d => d.id === id ? { ...d, z: 100 + z } : d) }), false);
   },
 
   alignDevices: (axis) => {
@@ -889,14 +959,12 @@ export const useStudio = create<StudioState>((set, get) => ({
     const snap = snapshot(cur, cur.name, thumb);
     const favs = [snap, ...get().favorites].slice(0, 40);
     set({ favorites: favs });
-    try { localStorage.setItem(LS_FAVS, JSON.stringify(favs)); } catch { /* full */ }
     get().toast('Saved to favorites');
   },
 
   unfavorite: (id) => {
     const favs = get().favorites.filter(f => f.id !== id);
     set({ favorites: favs });
-    try { localStorage.setItem(LS_FAVS, JSON.stringify(favs)); } catch { /* full */ }
   },
 
   applySnapshot: (s) => {
@@ -944,9 +1012,7 @@ export const useStudio = create<StudioState>((set, get) => ({
       const text = await file.text();
       const data = JSON.parse(text);
       const p = migrate(data.project ?? data);
-      set(s => ({ projects: [{ ...p, id: uid() }, ...s.projects] }));
-      persist(get().projects);
-      get().toast('Project file imported');
+      await get().importProject(p);
     } catch {
       get().toast('Invalid .mockup file', 'err');
     }
@@ -966,16 +1032,21 @@ export const useStudio = create<StudioState>((set, get) => ({
     }
     
     const projectWithThumb = { ...project, thumbnail };
-    const next = get().projects.some(x => x.id === project.id)
-      ? get().projects.map(x => x.id === project.id ? projectWithThumb : x)
-      : [projectWithThumb, ...get().projects];
-    const ok = persist(next);
-    if (ok) {
-      set(s => ({ projects: next, dirty: false, savedAt: Date.now(), saving: false, project: s.project ? { ...projectWithThumb } : null }));
-      if (!silent) get().toast('Project saved');
-    } else {
+    
+    try {
+      const response = await projectsAPI.update(project.id, projectWithThumb);
+      if (response.success) {
+        const updatedProject = migrate(response.project);
+        const next = get().projects.some(x => x.id === project.id)
+          ? get().projects.map(x => x.id === project.id ? updatedProject : x)
+          : [updatedProject, ...get().projects];
+        
+        set(s => ({ projects: next, dirty: false, savedAt: Date.now(), saving: false, project: s.project ? { ...updatedProject } : null }));
+        if (!silent) get().toast('Project saved');
+      }
+    } catch (error) {
       set({ saving: false });
-      get().toast('Storage is full — export your work or delete old projects', 'err');
+      get().toast('Failed to save project', 'err');
     }
   },
 
@@ -1010,24 +1081,19 @@ export const useStudio = create<StudioState>((set, get) => ({
   clearSelection: () => set({ selection: null }),
   setExportOpen: (v) => set({ exportOpen: v }),
 
-  trackExport: () => {
+  trackExport: async () => {
     const { project } = get();
-    const total = get().totalExports + 1;
-    localStorage.setItem(LS_STATS, JSON.stringify({ totalExports: total }));
-    if (project) {
-      const next = get().projects.map(x => x.id === project.id ? { ...x, exportCount: x.exportCount + 1 } : x);
-      persist(next);
-      set(s => ({ projects: next, project: s.project ? { ...s.project, exportCount: s.project.exportCount + 1 } : null }));
+    if (!project) return;
+    
+    try {
+      const response = await projectsAPI.incrementExport(project.id);
+      if (response.success) {
+        const total = get().totalExports + 1;
+        const next = get().projects.map(x => x.id === project.id ? { ...x, exportCount: x.exportCount + 1 } : x);
+        set(s => ({ projects: next, project: s.project ? { ...s.project, exportCount: s.project.exportCount + 1 } : null, totalExports: total }));
+      }
+    } catch (error) {
+      console.error('Failed to track export:', error);
     }
-    set({ totalExports: total });
   },
 }));
-
-function persist(projects: Project[]): boolean {
-  try {
-    localStorage.setItem(LS_PROJECTS, JSON.stringify(projects));
-    return true;
-  } catch {
-    return false;
-  }
-}

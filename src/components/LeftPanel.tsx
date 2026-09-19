@@ -454,6 +454,7 @@ function DecorTab() {
         scale: 0.07, rotation: Math.floor(Math.random() * 40 - 20),
         opacity: 0.7, blur: 0, depth: (Math.random() > 0.5 ? 'front' : 'back') as DecoDepth,
         hue: null, seed: Math.floor(Math.random() * 1e9),
+        z: p.decos.length + 1, // Decos start from z-index 1+
       }],
     }), false);
   };
@@ -694,6 +695,7 @@ function IconsTab() {
         bgColor: null,
         shadow: false,
         glow: false,
+        z: p.icons.length + 1, // Icons start from z-index 1+
       }],
     }));
   };

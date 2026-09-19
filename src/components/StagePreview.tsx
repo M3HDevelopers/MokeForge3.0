@@ -117,7 +117,7 @@ function DecoLayer({ deco, canvasW, canvasH, onDragStart, onDragEnd }: { deco: a
           deco.glow ? `drop-shadow(0 0 12px ${deco.hue || '#ffffff'})` : '',
         ].filter(Boolean).join(' ') || undefined,
         pointerEvents: 'auto',
-        zIndex: selected ? 100 : 1,
+        zIndex: deco.z || 1,
       }}
       onPointerDown={onDown}
       onPointerMove={onMove}
@@ -754,6 +754,7 @@ function IconLayer({ icon, canvasW, canvasH, onDragStart, onDragEnd }: { icon: I
         height: size,
         transform: `rotate(${icon.rotation}deg)`,
         opacity: icon.opacity,
+        zIndex: icon.z || 1,
       }}
       onPointerDown={onDown}
       onPointerMove={onMove}
@@ -917,7 +918,7 @@ function TextBoxLayer({ textbox, canvasW, canvasH, onDragStart, onDragEnd }: { t
         boxShadow: textbox.shadow ? '0 4px 12px rgba(0,0,0,0.3)' : textbox.glow ? `0 0 20px ${textbox.glowColor}` : undefined,
         filter: textbox.glow ? `drop-shadow(0 0 12px ${textbox.glowColor})` : undefined,
         pointerEvents: 'auto',
-        zIndex: selected ? 100 : 1,
+        zIndex: textbox.z || 1,
       }}
       onPointerDown={onDown}
       onPointerMove={onMove}
@@ -1221,7 +1222,7 @@ function CanvasImageLayer({ canvasImage, canvasW, canvasH, onDragStart, onDragEn
         boxShadow: shadowString,
         filter: canvasImage.glow ? `drop-shadow(0 0 ${canvasImage.glowBlur}px ${canvasImage.glowColor})` : undefined,
         pointerEvents: 'auto',
-        zIndex: selected ? 100 : canvasImage.z,
+        zIndex: canvasImage.z || 1,
         overflow: 'hidden',
       }}
       onPointerDown={onDown}
@@ -1729,6 +1730,7 @@ export function StagePreview({ toolMode = 'select', onContextMenu }: { toolMode?
                     bgColor: null,
                     shadow: false,
                     glow: false,
+                    z: p.icons.length + 1, // Icons start from z-index 1+
                   }],
                 }));
               } else if (decoPreset) {
@@ -1752,6 +1754,7 @@ export function StagePreview({ toolMode = 'select', onContextMenu }: { toolMode?
                     depth: 'front',
                     hue: null,
                     seed: Math.floor(Math.random() * 1e9),
+                    z: p.decos.length + 1, // Decos start from z-index 1+
                   }],
                 }), false);
               }
@@ -1762,17 +1765,17 @@ export function StagePreview({ toolMode = 'select', onContextMenu }: { toolMode?
             <PaintCanvas p={p} depth="all" />
             {sorted.map(d => <DeviceNode key={d.id} d={d} guides={guides} setGuides={setGuides} setDistanceInfo={setDistanceInfo} onDragStart={() => setIsDragging(true)} onDragEnd={() => setIsDragging(false)} />)}
             <PaintCanvas p={p} depth="front" />
-            {p.decos.map(deco => (
+            {p.canvasImages?.sort((a, b) => (a.z || 0) - (b.z || 0)).map(canvasImage => (
+              <CanvasImageLayer key={canvasImage.id} canvasImage={canvasImage} canvasW={p.canvas.w} canvasH={p.canvas.h} onDragStart={() => setIsDragging(true)} onDragEnd={() => setIsDragging(false)} guides={guides} setGuides={setGuides} setDistanceInfo={setDistanceInfo} />
+            ))}
+            {[...p.decos].sort((a, b) => (a.z || 0) - (b.z || 0)).map(deco => (
               <DecoLayer key={deco.id} deco={deco} canvasW={p.canvas.w} canvasH={p.canvas.h} onDragStart={() => setIsDragging(true)} onDragEnd={() => setIsDragging(false)} />
             ))}
-            {p.icons.map(icon => (
+            {[...p.icons].sort((a, b) => (a.z || 0) - (b.z || 0)).map(icon => (
               <IconLayer key={icon.id} icon={icon} canvasW={p.canvas.w} canvasH={p.canvas.h} onDragStart={() => setIsDragging(true)} onDragEnd={() => setIsDragging(false)} />
             ))}
-            {p.textboxes.map(textbox => (
+            {[...p.textboxes].sort((a, b) => (a.z || 0) - (b.z || 0)).map(textbox => (
               <TextBoxLayer key={textbox.id} textbox={textbox} canvasW={p.canvas.w} canvasH={p.canvas.h} onDragStart={() => setIsDragging(true)} onDragEnd={() => setIsDragging(false)} />
-            ))}
-            {p.canvasImages?.sort((a, b) => a.z - b.z).map(canvasImage => (
-              <CanvasImageLayer key={canvasImage.id} canvasImage={canvasImage} canvasW={p.canvas.w} canvasH={p.canvas.h} onDragStart={() => setIsDragging(true)} onDragEnd={() => setIsDragging(false)} guides={guides} setGuides={setGuides} setDistanceInfo={setDistanceInfo} />
             ))}
             <LogoOverlay p={p} />
             <TextOverlay p={p} />
