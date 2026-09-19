@@ -275,6 +275,7 @@ function QuickActions() {
   const isLocked = selection.id ? lockedObjects.has(`${selection.kind}:${selection.id}`) : false;
 
   const handleDuplicate = () => {
+    console.log('Duplicate clicked, selection:', selection);
     checkpoint();
     if (selection.kind === 'device' && selection.id) {
       duplicateDevice(selection.id);
@@ -298,7 +299,9 @@ function QuickActions() {
         toast('Decoration duplicated');
       }
     } else if (selection.kind === 'canvasImage' && selection.id) {
+      console.log('Canvas image duplicate, id:', selection.id);
       const canvasImage = project.canvasImages?.find(img => img.id === selection.id);
+      console.log('Found canvas image:', canvasImage);
       if (canvasImage) {
         update(p => ({ ...p, canvasImages: [...(p.canvasImages || []), { ...canvasImage, id: Math.random().toString(36).slice(2), x: canvasImage.x + 0.02, y: canvasImage.y + 0.02 }] }));
         toast('Image duplicated');
@@ -361,41 +364,45 @@ function QuickActions() {
 
   return (
     <div className="px-3 py-2 border-b border-line2 bg-panel flex items-center gap-1">
-      <button className="icon-btn !w-7 !h-7" onClick={handleDuplicate} disabled={isLocked} title="Duplicate (Ctrl+D)">
+      <button className="icon-btn !w-7 !h-7" onClick={handleDuplicate} title="Duplicate (Ctrl+D)">
         <IcCopy size={13} />
       </button>
-      <button className="icon-btn !w-7 !h-7 hover:!text-danger" onClick={handleDelete} disabled={isLocked} title="Delete (Del)">
+      <button className="icon-btn !w-7 !h-7 hover:!text-danger" onClick={handleDelete} title="Delete (Del)">
         <IcTrash size={13} />
       </button>
       <button className={`icon-btn !w-7 !h-7 ${isLocked ? 'text-acc' : ''}`} onClick={handleLock} title={isLocked ? 'Unlock' : 'Lock'}>
         {isLocked ? <IcLock size={13} /> : <IcUnlock size={13} />}
       </button>
-      <button className="icon-btn !w-7 !h-7" onClick={handleToggleVisibility} disabled={isLocked} title="Toggle Visibility">
+      <button className="icon-btn !w-7 !h-7" onClick={handleToggleVisibility} title="Toggle Visibility">
         <IcEye size={13} />
       </button>
       <div className="flex-1" />
       <button className="icon-btn !w-7 !h-7" onClick={() => { 
+        console.log('Bring Forward clicked, selection:', selection);
         checkpoint(); 
         if (selection.kind === 'device' && selection.id) { 
           update(p => ({ ...p, devices: p.devices.map(d => d.id === selection.id ? { ...d, z: d.z + 1 } : d) })); 
           toast('Brought forward'); 
         } else if (selection.kind === 'canvasImage' && selection.id) {
+          console.log('Canvas image bring forward, id:', selection.id);
           update(p => ({ ...p, canvasImages: (p.canvasImages || []).map(img => img.id === selection.id ? { ...img, z: img.z + 1 } : img) }));
           toast('Brought forward');
         }
-      }} disabled={isLocked} title="Bring Forward">
+      }} title="Bring Forward">
         <IcUp size={13} />
       </button>
       <button className="icon-btn !w-7 !h-7" onClick={() => { 
+        console.log('Send Backward clicked, selection:', selection);
         checkpoint(); 
         if (selection.kind === 'device' && selection.id) { 
           update(p => ({ ...p, devices: p.devices.map(d => d.id === selection.id ? { ...d, z: d.z - 1 } : d) })); 
           toast('Sent backward'); 
         } else if (selection.kind === 'canvasImage' && selection.id) {
+          console.log('Canvas image send backward, id:', selection.id);
           update(p => ({ ...p, canvasImages: (p.canvasImages || []).map(img => img.id === selection.id ? { ...img, z: img.z - 1 } : img) }));
           toast('Sent backward');
         }
-      }} disabled={isLocked} title="Send Backward">
+      }} title="Send Backward">
         <IcDown size={13} />
       </button>
     </div>
