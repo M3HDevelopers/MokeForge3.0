@@ -276,11 +276,12 @@ export interface Project {
   mood: Mood;
   icons: IconLayer[];
   textboxes: TextBox[];
+  canvasImages: CanvasImage[];
 }
 
 /* ================= editor state ================= */
 export interface Selection {
-  kind: 'device' | 'text' | 'logo' | 'background' | 'deco' | 'icon' | 'textbox';
+  kind: 'device' | 'text' | 'logo' | 'background' | 'deco' | 'icon' | 'textbox' | 'canvasImage';
   id?: string;
   ids?: string[]; // Multi-select support
 }

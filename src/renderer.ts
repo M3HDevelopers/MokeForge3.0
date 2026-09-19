@@ -408,6 +408,91 @@ function drawTextBlock(ctx: CanvasRenderingContext2D, p: Project) {
   ctx.restore();
 }
 
+/* ---------------- canvas images ---------------- */
+async function drawCanvasImages(ctx: CanvasRenderingContext2D, p: Project) {
+  if (!p.canvasImages || p.canvasImages.length === 0) return;
+  
+  const sorted = [...p.canvasImages].sort((a, b) => (a.z ?? 0) - (b.z ?? 0));
+  
+  for (const canvasImage of sorted) {
+    if (!canvasImage.visible) continue;
+    
+    const asset = p.assets.find(a => a.id === canvasImage.assetId);
+    if (!asset) continue;
+    
+    try {
+      const img = await loadImage(asset.dataUrl);
+      const x = canvasImage.x * p.canvas.w;
+      const y = canvasImage.y * p.canvas.h;
+      const width = canvasImage.width * p.canvas.w;
+      const height = canvasImage.height * p.canvas.h;
+      const centerX = x + width / 2;
+      const centerY = y + height / 2;
+      
+      ctx.save();
+      
+      // Apply rotation
+      if (canvasImage.rotation !== 0) {
+        ctx.translate(centerX, centerY);
+        ctx.rotate((canvasImage.rotation * Math.PI) / 180);
+        ctx.translate(-centerX, -centerY);
+      }
+      
+      // Apply opacity
+      ctx.globalAlpha = canvasImage.opacity;
+      
+      // Apply filters
+      const filters = [];
+      if (canvasImage.brightness !== 1) filters.push(`brightness(${canvasImage.brightness})`);
+      if (canvasImage.contrast !== 1) filters.push(`contrast(${canvasImage.contrast})`);
+      if (canvasImage.saturation !== 1) filters.push(`saturate(${canvasImage.saturation})`);
+      if (canvasImage.blur > 0) filters.push(`blur(${canvasImage.blur}px)`);
+      if (canvasImage.hue !== 0) filters.push(`hue-rotate(${canvasImage.hue}deg)`);
+      if (filters.length > 0) {
+        ctx.filter = filters.join(' ');
+      }
+      
+      // Apply shadow
+      if (canvasImage.shadow) {
+        ctx.shadowColor = canvasImage.shadowColor;
+        ctx.shadowBlur = canvasImage.shadowBlur;
+        ctx.shadowOffsetX = canvasImage.shadowOffsetX;
+        ctx.shadowOffsetY = canvasImage.shadowOffsetY;
+      }
+      
+      // Apply glow
+      if (canvasImage.glow) {
+        ctx.shadowColor = canvasImage.glowColor;
+        ctx.shadowBlur = canvasImage.glowBlur;
+      }
+      
+      // Clip with border radius
+      if (canvasImage.borderRadius > 0) {
+        const radius = (canvasImage.borderRadius / 100) * Math.min(width, height);
+        ctx.beginPath();
+        ctx.moveTo(x + radius, y);
+        ctx.lineTo(x + width - radius, y);
+        ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
+        ctx.lineTo(x + width, y + height - radius);
+        ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+        ctx.lineTo(x + radius, y + height);
+        ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
+        ctx.lineTo(x, y + radius);
+        ctx.quadraticCurveTo(x, y, x + radius, y);
+        ctx.closePath();
+        ctx.clip();
+      }
+      
+      // Draw image
+      ctx.drawImage(img, x, y, width, height);
+      
+      ctx.restore();
+    } catch {
+      // Skip failed images
+    }
+  }
+}
+
 async function drawLogo(ctx: CanvasRenderingContext2D, p: Project) {
   if (!p.logo.enabled || !p.logo.assetId) return;
   const asset = p.assets.find(a => a.id === p.logo.assetId);
@@ -551,6 +636,11 @@ export async function renderProject(p: Project, opts: { scale?: number; transpar
   // Draw icons
   if (p.icons && p.icons.length > 0) {
     drawIcons(ctx, p);
+  }
+
+  // Draw canvas images
+  if (p.canvasImages && p.canvasImages.length > 0) {
+    await drawCanvasImages(ctx, p);
   }
 
   await drawLogo(ctx, p);

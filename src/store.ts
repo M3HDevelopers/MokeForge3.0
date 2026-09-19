@@ -162,6 +162,10 @@ interface StudioState {
   addTextBox: () => void;
   removeTextBox: (id: string) => void;
   
+  // Canvas Image actions
+  addCanvasImage: (assetId: string) => void;
+  removeCanvasImage: (id: string) => void;
+  
   // Clipboard & Lock System
   clipboard: { type: string; data: any } | null;
   copySelection: () => void;
@@ -611,9 +615,60 @@ export const useStudio = create<StudioState>((set, get) => ({
     get().update(p => ({ ...p, textboxes: p.textboxes.filter(t => t.id !== id) }));
     set(s => s.selection?.id === id ? { selection: null } : s);
   },
-
-  addIconsAroundDevice: (deviceId, iconIds) => {
-    const cur = get().project;
+  
+  addCanvasImage: (assetId) => {
+    const id = uid();
+    const project = get().project;
+    if (!project) return;
+    
+    const asset = project.assets.find(a => a.id === assetId);
+    if (!asset) return;
+    
+    // Calculate initial size based on asset aspect ratio
+    const aspectRatio = asset.w / asset.h;
+    const initialWidth = 0.3; // 30% of canvas width
+    const initialHeight = initialWidth / aspectRatio;
+    
+    get().update(p => ({
+      ...p,
+      canvasImages: [...p.canvasImages, {
+        id,
+        assetId,
+        x: 0.35, // center-ish position
+        y: 0.35,
+        width: initialWidth,
+        height: initialHeight,
+        rotation: 0,
+        opacity: 1,
+        borderRadius: 0,
+        maintainAspectRatio: true,
+        shadow: false,
+        shadowColor: '#000000',
+        shadowBlur: 20,
+        shadowOffsetX: 0,
+        shadowOffsetY: 10,
+        glow: false,
+        glowColor: '#ff6b3d',
+        glowBlur: 20,
+        brightness: 1,
+        contrast: 1,
+        saturation: 1,
+        blur: 0,
+        hue: 0,
+        visible: true,
+        z: p.canvasImages.length,
+      }],
+    }));
+    set({ selection: { kind: 'canvasImage', id } });
+    get().toast('Image added to canvas');
+  },
+  
+  removeCanvasImage: (id) => {
+    get().update(p => ({ ...p, canvasImages: p.canvasImages.filter(img => img.id !== id) }));
+    set(s => s.selection?.id === id ? { selection: null } : s);
+  },
+  
+  addIconsAroundDevice: (deviceId, iconIds) => {    const cur = get().project;
     if (!cur) return;
     const device = cur.devices.find(d => d.id === deviceId);
     if (!device) return;

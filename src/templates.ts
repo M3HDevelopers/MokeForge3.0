@@ -480,6 +480,7 @@ export function makeDefaultProject(name: string, type: string, cw: number, ch: n
     mood: 'auto',
     icons: [],
     textboxes: [],
+    canvasImages: [],
   };
 }
 
@@ -503,6 +504,7 @@ export function migrate(p: any): Project {
     logo: { ...base.logo, ...(p.logo || {}) },
     icons: p.icons || [],
     textboxes: p.textboxes || [],
+    canvasImages: p.canvasImages || [],
   };
 }
 

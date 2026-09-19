@@ -24,6 +24,7 @@ export function RightPanel() {
   const icon = selection?.kind === 'icon' ? project.icons.find(i => i.id === selection.id) : undefined;
   const deco = selection?.kind === 'deco' ? project.decos.find(d => d.id === selection.id) : undefined;
   const textbox = selection?.kind === 'textbox' ? project.textboxes.find(t => t.id === selection.id) : undefined;
+  const canvasImage = selection?.kind === 'canvasImage' ? project.canvasImages?.find((img: any) => img.id === selection.id) : undefined;
 
   return (
     <div className="w-[292px] shrink-0 border-l border-line2 bg-panel flex flex-col h-full overflow-hidden">
@@ -31,6 +32,7 @@ export function RightPanel() {
         {selection && <QuickActions />}
         {selection && selection.kind !== 'background' && <UniversalTransform />}
         {device ? <DeviceProps d={device} />
+          : canvasImage ? <CanvasImageProps img={canvasImage} />
           : icon ? <IconProps i={icon} />
           : deco ? <DecoProps d={deco} />
           : textbox ? <TextBoxProps t={textbox} />
@@ -1025,6 +1027,79 @@ function TextBoxProps({ t }: { t: any }) {
   );
 }
 
+function CanvasImageProps({ img }: { img: any }) {
+  const project = useStudio(s => s.project)!;
+  const update = useStudio(s => s.update);
+  const checkpoint = useStudio(s => s.checkpoint);
+  const removeCanvasImage = useStudio(s => s.removeCanvasImage);
+  const patch = (fn: (x: any) => any) =>
+    update(p => ({ ...p, canvasImages: p.canvasImages.map(x => x.id === img.id ? fn(x) : x) }), false);
+  
+  const asset = project.assets.find(a => a.id === img.assetId);
+  
+  return (
+    <>
+      <Section title="Canvas Image" right={
+        <button className="icon-btn !w-6 !h-6 hover:!text-danger" onClick={() => removeCanvasImage(img.id)}>
+          <IcTrash size={12} />
+        </button>
+      }>
+        <div className="text-[11px] mb-2" style={{ color: 'var(--color-dim)', fontFamily: 'var(--font-mono)' }}>
+          {asset?.name || 'Unknown asset'}
+        </div>
+      </Section>
+      
+      <Section title="Transform">
+        <SliderRow label="Width" value={Math.round(img.width * 100)} min={5} max={100} fmt={v => `${v}%`} onStart={checkpoint} onChange={v => patch((x: any) => ({ ...x, width: v / 100, height: x.maintainAspectRatio ? (v / 100) / ((asset?.w || 1) / (asset?.h || 1)) : x.height }))} />
+        <SliderRow label="Height" value={Math.round(img.height * 100)} min={5} max={100} fmt={v => `${v}%`} onStart={checkpoint} onChange={v => patch((x: any) => ({ ...x, height: v / 100, width: x.maintainAspectRatio ? (v / 100) * ((asset?.w || 1) / (asset?.h || 1)) : x.width }))} />
+        <SliderRow label="Rotation" value={img.rotation} min={-180} max={180} fmt={v => `${v}°`} onStart={checkpoint} onChange={v => patch((x: any) => ({ ...x, rotation: v }))} />
+        <SliderRow label="Opacity" value={Math.round(img.opacity * 100)} min={0} max={100} fmt={v => `${v}%`} onStart={checkpoint} onChange={v => patch((x: any) => ({ ...x, opacity: v / 100 }))} />
+        <div className="mt-2">
+          <Toggle on={img.maintainAspectRatio} onChange={v => patch((x: any) => ({ ...x, maintainAspectRatio: v }))} label="Maintain aspect ratio" />
+        </div>
+      </Section>
+      
+      <Section title="Corner Radius">
+        <SliderRow label="Radius" value={img.borderRadius} min={0} max={50} fmt={v => `${v}%`} onStart={checkpoint} onChange={v => patch((x: any) => ({ ...x, borderRadius: v }))} />
+      </Section>
+      
+      <Section title="Effects">
+        <Toggle on={img.shadow} onChange={v => patch((x: any) => ({ ...x, shadow: v }))} label="Shadow" />
+        {img.shadow && (
+          <>
+            <SliderRow label="Blur" value={img.shadowBlur} min={0} max={50} fmt={v => `${v}px`} onStart={checkpoint} onChange={v => patch((x: any) => ({ ...x, shadowBlur: v }))} />
+            <SliderRow label="Offset X" value={img.shadowOffsetX} min={-50} max={50} fmt={v => `${v}px`} onStart={checkpoint} onChange={v => patch((x: any) => ({ ...x, shadowOffsetX: v }))} />
+            <SliderRow label="Offset Y" value={img.shadowOffsetY} min={-50} max={50} fmt={v => `${v}px`} onStart={checkpoint} onChange={v => patch((x: any) => ({ ...x, shadowOffsetY: v }))} />
+            <ColorInput value={img.shadowColor} onChange={v => patch((x: any) => ({ ...x, shadowColor: v }))} label="shadow color" />
+          </>
+        )}
+        
+        <div className="mt-3">
+          <Toggle on={img.glow} onChange={v => patch((x: any) => ({ ...x, glow: v }))} label="Glow" />
+          {img.glow && (
+            <>
+              <SliderRow label="Blur" value={img.glowBlur} min={0} max={50} fmt={v => `${v}px`} onStart={checkpoint} onChange={v => patch((x: any) => ({ ...x, glowBlur: v }))} />
+              <ColorInput value={img.glowColor} onChange={v => patch((x: any) => ({ ...x, glowColor: v }))} label="glow color" />
+            </>
+          )}
+        </div>
+      </Section>
+      
+      <Section title="Adjustments">
+        <SliderRow label="Brightness" value={Math.round(img.brightness * 100)} min={0} max={200} fmt={v => `${v}%`} onStart={checkpoint} onChange={v => patch((x: any) => ({ ...x, brightness: v / 100 }))} />
+        <SliderRow label="Contrast" value={Math.round(img.contrast * 100)} min={0} max={200} fmt={v => `${v}%`} onStart={checkpoint} onChange={v => patch((x: any) => ({ ...x, contrast: v / 100 }))} />
+        <SliderRow label="Saturation" value={Math.round(img.saturation * 100)} min={0} max={200} fmt={v => `${v}%`} onStart={checkpoint} onChange={v => patch((x: any) => ({ ...x, saturation: v / 100 }))} />
+        <SliderRow label="Blur" value={img.blur} min={0} max={20} fmt={v => `${v}px`} onStart={checkpoint} onChange={v => patch((x: any) => ({ ...x, blur: v }))} />
+        <SliderRow label="Hue" value={img.hue} min={0} max={360} fmt={v => `${v}°`} onStart={checkpoint} onChange={v => patch((x: any) => ({ ...x, hue: v }))} />
+      </Section>
+      
+      <Section title="Layer">
+        <SliderRow label="Z-Index" value={img.z} min={0} max={100} onStart={checkpoint} onChange={v => patch((x: any) => ({ ...x, z: v }))} />
+      </Section>
+    </>
+  );
+}
+
 function IconProps({ i }: { i: import('../types').IconLayer }) {
   const project = useStudio(s => s.project)!;
   const update = useStudio(s => s.update);
@@ -1132,6 +1207,10 @@ function LayersList() {
   // Build layers array with type info
   const allLayers = [
     ...project.devices.map(d => ({ id: d.id, kind: 'device' as const, name: d.name, visible: d.visible, locked: lockedObjects.has(`device:${d.id}`) })),
+    ...(project.canvasImages || []).map((img: any) => {
+      const asset = project.assets.find(a => a.id === img.assetId);
+      return { id: img.id, kind: 'canvasImage' as const, name: asset?.name || 'Canvas Image', visible: img.visible && img.opacity > 0, locked: lockedObjects.has(`canvasImage:${img.id}`) };
+    }),
     ...project.textboxes.map((tb: any) => ({ id: tb.id, kind: 'textbox' as const, name: tb.text?.slice(0, 20) || 'Text Box', visible: tb.opacity > 0, locked: lockedObjects.has(`textbox:${tb.id}`) })),
     ...project.icons.map((icon: any) => ({ id: icon.id, kind: 'icon' as const, name: 'Icon', visible: icon.opacity > 0, locked: lockedObjects.has(`icon:${icon.id}`) })),
     ...project.decos.map((deco: any) => ({ id: deco.id, kind: 'deco' as const, name: 'Decoration', visible: deco.opacity > 0, locked: lockedObjects.has(`deco:${deco.id}`) })),
@@ -1213,6 +1292,8 @@ function LayersList() {
                     checkpoint();
                     if (layer.kind === 'device') {
                       update(p => ({ ...p, devices: p.devices.map(x => x.id === layer.id ? { ...x, visible: !x.visible } : x) }), false);
+                    } else if (layer.kind === 'canvasImage') {
+                      update(p => ({ ...p, canvasImages: p.canvasImages.map(x => x.id === layer.id ? { ...x, visible: !x.visible } : x) }), false);
                     } else if (layer.kind === 'textbox') {
                       update(p => ({ ...p, textboxes: p.textboxes.map(x => x.id === layer.id ? { ...x, opacity: x.opacity === 0 ? 1 : 0 } : x) }), false);
                     } else if (layer.kind === 'icon') {
@@ -1242,7 +1323,7 @@ function LayersList() {
                     <IcArrowL size={10} className="rotate-90" />
                   </button>
                 )}
-                {(layer.kind === 'textbox' || layer.kind === 'icon' || layer.kind === 'deco') && (
+                {(layer.kind === 'textbox' || layer.kind === 'icon' || layer.kind === 'deco' || layer.kind === 'canvasImage') && (
                   <button 
                     className="icon-btn !w-5 !h-5 hover:!text-danger" 
                     onClick={(e) => { 
@@ -1254,6 +1335,8 @@ function LayersList() {
                         update(p => ({ ...p, icons: p.icons.filter(x => x.id !== layer.id) }), false);
                       } else if (layer.kind === 'deco') {
                         update(p => ({ ...p, decos: p.decos.filter(x => x.id !== layer.id) }), false);
+                      } else if (layer.kind === 'canvasImage') {
+                        update(p => ({ ...p, canvasImages: p.canvasImages.filter(x => x.id !== layer.id) }), false);
                       }
                     }}
                     disabled={layer.locked}

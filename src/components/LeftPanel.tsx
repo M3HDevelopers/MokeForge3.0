@@ -153,6 +153,7 @@ function ScreensTab() {
   const renameAsset = useStudio(s => s.renameAsset);
   const duplicateAsset = useStudio(s => s.duplicateAsset);
   const addAsset = useStudio(s => s.addAsset);
+  const addCanvasImage = useStudio(s => s.addCanvasImage);
   const responsive = useStudio(s => s.responsive);
   const toast = useStudio(s => s.toast);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -255,6 +256,7 @@ function ScreensTab() {
                   </div>
                 </div>
                 <div className="flex flex-col gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <button className="icon-btn !w-5 !h-5" onClick={(e) => { e.stopPropagation(); addCanvasImage(a.id); }} title="Add to Canvas"><IcImage size={10} /></button>
                   <button className="icon-btn !w-5 !h-5" onClick={() => duplicateAsset(a.id)} title="Duplicate"><IcCopy size={10} /></button>
                   <button className="icon-btn !w-5 !h-5" onClick={() => removeAsset(a.id)} title="Remove"><IcTrash size={10} /></button>
                 </div>
