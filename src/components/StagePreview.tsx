@@ -1762,13 +1762,13 @@ export function StagePreview({ toolMode = 'select', onContextMenu }: { toolMode?
             <PaintCanvas p={p} depth="all" />
             {sorted.map(d => <DeviceNode key={d.id} d={d} guides={guides} setGuides={setGuides} setDistanceInfo={setDistanceInfo} onDragStart={() => setIsDragging(true)} onDragEnd={() => setIsDragging(false)} />)}
             <PaintCanvas p={p} depth="front" />
-            {p.decos.map(deco => (
+            {[...p.decos].sort((a, b) => (a.z || 0) - (b.z || 0)).map(deco => (
               <DecoLayer key={deco.id} deco={deco} canvasW={p.canvas.w} canvasH={p.canvas.h} onDragStart={() => setIsDragging(true)} onDragEnd={() => setIsDragging(false)} />
             ))}
-            {p.icons.map(icon => (
+            {[...p.icons].sort((a, b) => (a.z || 0) - (b.z || 0)).map(icon => (
               <IconLayer key={icon.id} icon={icon} canvasW={p.canvas.w} canvasH={p.canvas.h} onDragStart={() => setIsDragging(true)} onDragEnd={() => setIsDragging(false)} />
             ))}
-            {p.textboxes.map(textbox => (
+            {[...p.textboxes].sort((a, b) => (a.z || 0) - (b.z || 0)).map(textbox => (
               <TextBoxLayer key={textbox.id} textbox={textbox} canvasW={p.canvas.w} canvasH={p.canvas.h} onDragStart={() => setIsDragging(true)} onDragEnd={() => setIsDragging(false)} />
             ))}
             {p.canvasImages?.sort((a, b) => a.z - b.z).map(canvasImage => (

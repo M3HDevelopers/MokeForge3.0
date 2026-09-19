@@ -35,6 +35,7 @@ export interface TextBox {
   shadow: boolean;
   glow: boolean;
   glowColor: string;
+  z?: number; // layer order
 }
 
 /* ================= new enums ================= */
@@ -142,6 +143,7 @@ export interface IconLayer {
   glow: boolean;
   material?: IconMaterial;
   gradient?: { from: string; to: string };
+  z?: number; // layer order
 }
 
 /* ================= interfaces ================= */
@@ -237,6 +239,7 @@ export interface DecoLayer {
   depth: DecoDepth;
   hue: string | null;
   seed: number;
+  z?: number; // layer order
 }
 
 export interface DecorationState {

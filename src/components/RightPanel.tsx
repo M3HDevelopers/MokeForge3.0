@@ -387,6 +387,18 @@ function QuickActions() {
           console.log('Canvas image bring forward, id:', selection.id);
           update(p => ({ ...p, canvasImages: (p.canvasImages || []).map(img => img.id === selection.id ? { ...img, z: img.z + 1 } : img) }));
           toast('Brought forward');
+        } else if (selection.kind === 'icon' && selection.id) {
+          console.log('Icon bring forward, id:', selection.id);
+          update(p => ({ ...p, icons: p.icons.map(i => i.id === selection.id ? { ...i, z: (i.z || 0) + 1 } : i) }));
+          toast('Brought forward');
+        } else if (selection.kind === 'deco' && selection.id) {
+          console.log('Deco bring forward, id:', selection.id);
+          update(p => ({ ...p, decos: p.decos.map(d => d.id === selection.id ? { ...d, z: (d.z || 0) + 1 } : d) }));
+          toast('Brought forward');
+        } else if (selection.kind === 'textbox' && selection.id) {
+          console.log('Textbox bring forward, id:', selection.id);
+          update(p => ({ ...p, textboxes: p.textboxes.map(t => t.id === selection.id ? { ...t, z: (t.z || 0) + 1 } : t) }));
+          toast('Brought forward');
         }
       }} title="Bring Forward">
         <IcUp size={13} />
@@ -400,6 +412,18 @@ function QuickActions() {
         } else if (selection.kind === 'canvasImage' && selection.id) {
           console.log('Canvas image send backward, id:', selection.id);
           update(p => ({ ...p, canvasImages: (p.canvasImages || []).map(img => img.id === selection.id ? { ...img, z: img.z - 1 } : img) }));
+          toast('Sent backward');
+        } else if (selection.kind === 'icon' && selection.id) {
+          console.log('Icon send backward, id:', selection.id);
+          update(p => ({ ...p, icons: p.icons.map(i => i.id === selection.id ? { ...i, z: (i.z || 0) - 1 } : i) }));
+          toast('Sent backward');
+        } else if (selection.kind === 'deco' && selection.id) {
+          console.log('Deco send backward, id:', selection.id);
+          update(p => ({ ...p, decos: p.decos.map(d => d.id === selection.id ? { ...d, z: (d.z || 0) - 1 } : d) }));
+          toast('Sent backward');
+        } else if (selection.kind === 'textbox' && selection.id) {
+          console.log('Textbox send backward, id:', selection.id);
+          update(p => ({ ...p, textboxes: p.textboxes.map(t => t.id === selection.id ? { ...t, z: (t.z || 0) - 1 } : t) }));
           toast('Sent backward');
         }
       }} title="Send Backward">
