@@ -297,6 +297,12 @@ function QuickActions() {
         update(p => ({ ...p, decos: [...p.decos, { ...deco, id: Math.random().toString(36).slice(2), x: deco.x + 0.02, y: deco.y + 0.02 }] }));
         toast('Decoration duplicated');
       }
+    } else if (selection.kind === 'canvasImage' && selection.id) {
+      const canvasImage = project.canvasImages?.find(img => img.id === selection.id);
+      if (canvasImage) {
+        update(p => ({ ...p, canvasImages: [...(p.canvasImages || []), { ...canvasImage, id: Math.random().toString(36).slice(2), x: canvasImage.x + 0.02, y: canvasImage.y + 0.02 }] }));
+        toast('Image duplicated');
+      }
     }
   };
 
@@ -315,6 +321,10 @@ function QuickActions() {
       update(p => ({ ...p, decos: p.decos.filter(d => d.id !== selection.id) }));
       setSelection(null);
       toast('Decoration deleted');
+    } else if (selection.kind === 'canvasImage' && selection.id) {
+      update(p => ({ ...p, canvasImages: (p.canvasImages || []).filter(img => img.id !== selection.id) }));
+      setSelection(null);
+      toast('Image deleted');
     }
   };
 
@@ -340,6 +350,8 @@ function QuickActions() {
       update(p => ({ ...p, textboxes: p.textboxes.map(t => t.id === selection.id ? { ...t, opacity: t.opacity > 0 ? 0 : 1 } : t) }));
     } else if (selection.kind === 'deco' && selection.id) {
       update(p => ({ ...p, decos: p.decos.map(d => d.id === selection.id ? { ...d, opacity: d.opacity > 0 ? 0 : 1 } : d) }));
+    } else if (selection.kind === 'canvasImage' && selection.id) {
+      update(p => ({ ...p, canvasImages: (p.canvasImages || []).map(img => img.id === selection.id ? { ...img, visible: !img.visible } : img) }));
     } else if (selection.kind === 'text') {
       update(p => ({ ...p, text: { ...p.text, enabled: !p.text.enabled } }));
     } else if (selection.kind === 'logo') {
@@ -362,10 +374,28 @@ function QuickActions() {
         <IcEye size={13} />
       </button>
       <div className="flex-1" />
-      <button className="icon-btn !w-7 !h-7" onClick={() => { checkpoint(); if (selection.kind === 'device' && selection.id) { update(p => ({ ...p, devices: p.devices.map(d => d.id === selection.id ? { ...d, z: d.z + 1 } : d) })); toast('Brought forward'); } }} disabled={isLocked} title="Bring Forward">
+      <button className="icon-btn !w-7 !h-7" onClick={() => { 
+        checkpoint(); 
+        if (selection.kind === 'device' && selection.id) { 
+          update(p => ({ ...p, devices: p.devices.map(d => d.id === selection.id ? { ...d, z: d.z + 1 } : d) })); 
+          toast('Brought forward'); 
+        } else if (selection.kind === 'canvasImage' && selection.id) {
+          update(p => ({ ...p, canvasImages: (p.canvasImages || []).map(img => img.id === selection.id ? { ...img, z: img.z + 1 } : img) }));
+          toast('Brought forward');
+        }
+      }} disabled={isLocked} title="Bring Forward">
         <IcUp size={13} />
       </button>
-      <button className="icon-btn !w-7 !h-7" onClick={() => { checkpoint(); if (selection.kind === 'device' && selection.id) { update(p => ({ ...p, devices: p.devices.map(d => d.id === selection.id ? { ...d, z: d.z - 1 } : d) })); toast('Sent backward'); } }} disabled={isLocked} title="Send Backward">
+      <button className="icon-btn !w-7 !h-7" onClick={() => { 
+        checkpoint(); 
+        if (selection.kind === 'device' && selection.id) { 
+          update(p => ({ ...p, devices: p.devices.map(d => d.id === selection.id ? { ...d, z: d.z - 1 } : d) })); 
+          toast('Sent backward'); 
+        } else if (selection.kind === 'canvasImage' && selection.id) {
+          update(p => ({ ...p, canvasImages: (p.canvasImages || []).map(img => img.id === selection.id ? { ...img, z: img.z - 1 } : img) }));
+          toast('Sent backward');
+        }
+      }} disabled={isLocked} title="Send Backward">
         <IcDown size={13} />
       </button>
     </div>

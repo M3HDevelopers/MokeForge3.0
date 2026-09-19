@@ -169,8 +169,8 @@ input[type="color"].swatch-input::-webkit-color-swatch { border: none; border-ra
 .anim-spin { animation: spin360 1s linear infinite; }
 
 .sel-ring {
-  outline: 1.5px solid var(--color-acc);
-  outline-offset: 4px;
+  outline: 1px dashed var(--color-acc);
+  outline-offset: 2px;
 }
 .sel-ring-svg { stroke: var(--color-acc); stroke-width: 1.5; stroke-dasharray: 7 7; animation: dashMarch .8s linear infinite; fill: none; }
 

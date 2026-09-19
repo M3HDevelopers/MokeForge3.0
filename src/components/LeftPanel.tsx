@@ -469,7 +469,16 @@ function DecorTab() {
         </div>
         <div className="grid grid-cols-2 gap-1.5 max-h-[400px] overflow-y-auto">
           {list.map(d => (
-            <button key={d.id} onClick={() => add(d.id)} className="p-2 rounded-lg border border-line bg-panel hover:border-acc/50 hover:bg-panel2 transition-all text-left group">
+            <button 
+              key={d.id} 
+              onClick={() => add(d.id)} 
+              draggable
+              onDragStart={(e) => {
+                e.dataTransfer.setData('text/deco-preset', d.id);
+                e.dataTransfer.effectAllowed = 'copy';
+              }}
+              className="p-2 rounded-lg border border-line bg-panel hover:border-acc/50 hover:bg-panel2 transition-all text-left group cursor-grab active:cursor-grabbing"
+            >
               <div className="text-[11px] font-medium group-hover:text-acc transition-colors">{d.label}</div>
               <div className="text-[9px]" style={{ fontFamily: 'var(--font-mono)', color: 'var(--color-dim)' }}>{d.role}</div>
             </button>
@@ -808,7 +817,16 @@ function IconsTab() {
         </div>
         <div className="grid grid-cols-4 gap-1.5">
           {list.map((icon: any) => (
-            <button key={icon.id} onClick={() => addIcon(icon.id)} className="group p-2 rounded-lg border border-line hover:border-acc/50 hover:bg-panel2 transition-all flex flex-col items-center gap-1">
+            <button 
+              key={icon.id} 
+              onClick={() => addIcon(icon.id)} 
+              draggable
+              onDragStart={(e) => {
+                e.dataTransfer.setData('text/icon-id', icon.id);
+                e.dataTransfer.effectAllowed = 'copy';
+              }}
+              className="group p-2 rounded-lg border border-line hover:border-acc/50 hover:bg-panel2 transition-all flex flex-col items-center gap-1 cursor-grab active:cursor-grabbing"
+            >
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" className="text-mut group-hover:text-acc transition-colors">
                 <path d={icon.d || icon.pathData} />
               </svg>

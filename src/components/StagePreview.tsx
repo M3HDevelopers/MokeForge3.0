@@ -1683,22 +1683,74 @@ export function StagePreview({ toolMode = 'select', onContextMenu }: { toolMode?
           }}
           onDrop={(e) => {
             e.preventDefault();
-            const assetId = e.dataTransfer.getData('text/asset-id');
-            if (assetId) {
-              // Check if dropped on a device
-              const target = e.target as HTMLElement;
-              const deviceElement = target.closest('[data-device-id]');
+            
+            // Check if dropped on a device
+            const target = e.target as HTMLElement;
+            const deviceElement = target.closest('[data-device-id]');
+            
+            // If dropped on device, don't create canvas image (device will handle it)
+            if (!deviceElement) {
+              // Calculate drop position relative to canvas
+              const rect = e.currentTarget.getBoundingClientRect();
+              const dropX = (e.clientX - rect.left) / zoom / p.canvas.w;
+              const dropY = (e.clientY - rect.top) / zoom / p.canvas.h;
               
-              // If dropped on device, don't create canvas image (device will handle it)
-              if (!deviceElement) {
-                // Calculate drop position relative to canvas
-                const rect = e.currentTarget.getBoundingClientRect();
-                const dropX = (e.clientX - rect.left) / zoom / p.canvas.w;
-                const dropY = (e.clientY - rect.top) / zoom / p.canvas.h;
-                
+              // Handle different drag types
+              const assetId = e.dataTransfer.getData('text/asset-id');
+              const iconId = e.dataTransfer.getData('text/icon-id');
+              const decoPreset = e.dataTransfer.getData('text/deco-preset');
+              
+              if (assetId) {
                 // Add canvas image at drop position
                 const addCanvasImage = useStudio.getState().addCanvasImage;
                 addCanvasImage(assetId, dropX, dropY);
+              } else if (iconId) {
+                // Add icon at drop position
+                const update = useStudio.getState().update;
+                const checkpoint = useStudio.getState().checkpoint;
+                const uid = () => Math.random().toString(36).slice(2, 9) + Date.now().toString(36).slice(-3);
+                
+                checkpoint();
+                update(p => ({
+                  ...p,
+                  icons: [...p.icons, {
+                    id: uid(),
+                    iconId: iconId,
+                    x: dropX,
+                    y: dropY,
+                    size: 0.08,
+                    color: '#ffffff',
+                    opacity: 1,
+                    rotation: 0,
+                    bgStyle: 'none',
+                    bgColor: null,
+                    shadow: false,
+                    glow: false,
+                  }],
+                }));
+              } else if (decoPreset) {
+                // Add decoration at drop position
+                const update = useStudio.getState().update;
+                const checkpoint = useStudio.getState().checkpoint;
+                const uid = () => Math.random().toString(36).slice(2, 9) + Date.now().toString(36).slice(-3);
+                
+                checkpoint();
+                update(p => ({
+                  ...p,
+                  decos: [...p.decos, {
+                    id: uid(),
+                    preset: decoPreset,
+                    x: dropX,
+                    y: dropY,
+                    scale: 0.07,
+                    rotation: 0,
+                    opacity: 0.7,
+                    blur: 0,
+                    depth: 'front',
+                    hue: null,
+                    seed: Math.floor(Math.random() * 1e9),
+                  }],
+                }), false);
               }
             }
           }}
