@@ -51,15 +51,23 @@ function DecoLayer({ deco, canvasW, canvasH, onDragStart, onDragEnd }: { deco: a
   const checkpoint = useStudio(s => s.checkpoint);
   const zoom = useStudio(s => s.zoom);
   const selected = useStudio(s => s.selection?.kind === 'deco' && (s.selection.id === deco.id || s.selection.ids?.includes(deco.id)));
+  const lockedObjects = useStudio(s => s.lockedObjects);
   
   const size = deco.scale * Math.min(canvasW, canvasH);
   const x = deco.x * canvasW - size / 2;
   const y = deco.y * canvasH - size / 2;
   
   const dragRef = useRef<{ sx: number; sy: number; ox: number; oy: number } | null>(null);
+  const isLocked = lockedObjects.has(`deco:${deco.id}`);
   
   const onDown = (e: RPointerEvent<HTMLDivElement>) => {
     e.stopPropagation();
+    
+    // If locked, only allow selection, no dragging
+    if (isLocked) {
+      setSelection({ kind: 'deco', id: deco.id, ids: [deco.id] });
+      return;
+    }
     
     if (e.shiftKey) {
       if (selection?.kind === 'deco' && selection.ids?.includes(deco.id)) {
@@ -519,12 +527,13 @@ function PlaceholderScreen({ d, highlight }: { d: DeviceLayer; highlight: boolea
 }
 
 function TextOverlay({ p }: { p: Project }) {
-  // Hooks must be called BEFORE any conditional returns
+  // ALL hooks must be called BEFORE any conditional returns
   const selected = useStudio(s => s.selection?.kind === 'text');
   const setSelection = useStudio(s => s.setSelection);
   const update = useStudio(s => s.update);
   const checkpoint = useStudio(s => s.checkpoint);
   const zoom = useStudio(s => s.zoom);
+  const dragRef = useRef<{ sx: number; sy: number; ox: number; oy: number } | null>(null);
   
   const t = p.text;
   if (!t) return null;
@@ -568,8 +577,6 @@ function TextOverlay({ p }: { p: Project }) {
   const align = pos.includes('left') ? 'flex-start' : pos.includes('right') ? 'flex-end' : 'center';
   const justify = pos.startsWith('top') ? 'flex-start' : pos.startsWith('bottom') ? 'flex-end' : 'center';
   const lightText = luminance(color) > 0.5;
-  
-  const dragRef = useRef<{ sx: number; sy: number; ox: number; oy: number } | null>(null);
   
   const onDown = (e: RPointerEvent<HTMLDivElement>) => {
     e.stopPropagation();
@@ -673,9 +680,7 @@ function LogoOverlay({ p }: { p: Project }) {
 }
 
 function IconLayer({ icon, canvasW, canvasH, onDragStart, onDragEnd }: { icon: IconLayerType; canvasW: number; canvasH: number; onDragStart: () => void; onDragEnd: () => void }) {
-  const iconDef = ICONS.find((i) => i.id === icon.iconId);
-  if (!iconDef) return null;
-
+  // ALL hooks first - before any conditional returns
   const setSelection = useStudio(s => s.setSelection);
   const addToSelection = useStudio(s => s.addToSelection);
   const selection = useStudio(s => s.selection);
@@ -683,6 +688,13 @@ function IconLayer({ icon, canvasW, canvasH, onDragStart, onDragEnd }: { icon: I
   const checkpoint = useStudio(s => s.checkpoint);
   const zoom = useStudio(s => s.zoom);
   const selected = useStudio(s => s.selection?.kind === 'icon' && (s.selection.id === icon.id || s.selection.ids?.includes(icon.id)));
+  const lockedObjects = useStudio(s => s.lockedObjects);
+  const dragRef = useRef<{ sx: number; sy: number; ox: number; oy: number } | null>(null);
+  
+  const iconDef = ICONS.find((i) => i.id === icon.iconId);
+  if (!iconDef) return null;
+  
+  const isLocked = lockedObjects.has(`icon:${icon.id}`);
   
   const size = icon.size * Math.min(canvasW, canvasH);
   const x = icon.x * canvasW - size / 2;
@@ -691,10 +703,14 @@ function IconLayer({ icon, canvasW, canvasH, onDragStart, onDragEnd }: { icon: I
   const bgColor = icon.bgColor || '#ffffff';
   const bgPadding = size * 0.2;
 
-  const dragRef = useRef<{ sx: number; sy: number; ox: number; oy: number } | null>(null);
-
   const onDown = (e: RPointerEvent<HTMLDivElement>) => {
     e.stopPropagation();
+    
+    // If locked, only allow selection, no dragging
+    if (isLocked) {
+      setSelection({ kind: 'icon', id: icon.id, ids: [icon.id] });
+      return;
+    }
     
     if (e.shiftKey) {
       if (selection?.kind === 'icon' && selection.ids?.includes(icon.id)) {
@@ -796,15 +812,23 @@ function TextBoxLayer({ textbox, canvasW, canvasH, onDragStart, onDragEnd }: { t
   const checkpoint = useStudio(s => s.checkpoint);
   const zoom = useStudio(s => s.zoom);
   const selected = useStudio(s => s.selection?.kind === 'textbox' && (s.selection.id === textbox.id || s.selection.ids?.includes(textbox.id)));
+  const lockedObjects = useStudio(s => s.lockedObjects);
   
   const x = textbox.x * canvasW;
   const y = textbox.y * canvasH;
   const width = textbox.width * canvasW;
   
   const dragRef = useRef<{ sx: number; sy: number; ox: number; oy: number } | null>(null);
+  const isLocked = lockedObjects.has(`textbox:${textbox.id}`);
   
   const onDown = (e: RPointerEvent<HTMLDivElement>) => {
     e.stopPropagation();
+    
+    // If locked, only allow selection, no dragging
+    if (isLocked) {
+      setSelection({ kind: 'textbox', id: textbox.id, ids: [textbox.id] });
+      return;
+    }
     
     if (e.shiftKey) {
       if (selection?.kind === 'textbox' && selection.ids?.includes(textbox.id)) {
@@ -966,8 +990,17 @@ function DeviceNode({ d, guides, setGuides, setDistanceInfo, onDragStart, onDrag
   const h = d.w / DEVICE_META[d.kind].aspect;
   const dragRef = useRef<{ mode: 'move' | 'resize' | 'rotate'; sx: number; sy: number; ox: number; oy: number; ow: number; startAngle?: number } | null>(null);
 
+  const lockedObjects = useStudio(s => s.lockedObjects);
+  const isLocked = lockedObjects.has(`device:${d.id}`);
+  
   const onDown = (e: RPointerEvent<HTMLDivElement>) => {
     e.stopPropagation();
+    
+    // If locked, only allow selection, no dragging
+    if (isLocked) {
+      setSelection({ kind: 'device', id: d.id, ids: [d.id] });
+      return;
+    }
     
     if (e.shiftKey) {
       if (selection?.kind === 'device' && selection.ids?.includes(d.id)) {

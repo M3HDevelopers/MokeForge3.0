@@ -1231,8 +1231,8 @@ function LayersList() {
                 </button>
 
                 {/* Name */}
-                <span className="flex-1 text-[12px] truncate" style={{ opacity: layer.visible ? 1 : 0.45 }}>
-                  {layer.locked && <span className="mr-1">🔒</span>}
+                <span className="flex-1 text-[12px] truncate flex items-center gap-1" style={{ opacity: layer.visible ? 1 : 0.45 }}>
+                  {layer.locked && <IcLock size={11} />}
                   {layer.name}
                 </span>
 
