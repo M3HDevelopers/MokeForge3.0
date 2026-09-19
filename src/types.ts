@@ -98,6 +98,35 @@ export interface ImageBgState {
 export type IconMaterial = 'default' | 'glass' | 'glossy' | 'metallic' | 'ceramic' | 'holographic' | 'crystal';
 export type IconPlacementMode = 'free' | 'around-device' | 'behind-device' | 'orbit' | 'cluster' | 'tech-stack';
 
+/* ================= Canvas Image types ================= */
+export interface CanvasImage {
+  id: string;
+  assetId: string; // reference to Asset
+  x: number; // percentage 0-1
+  y: number; // percentage 0-1
+  width: number; // percentage 0-1
+  height: number; // percentage 0-1 (auto-calculated if maintainAspectRatio)
+  rotation: number; // degrees
+  opacity: number; // 0-1
+  borderRadius: number; // percentage 0-50
+  maintainAspectRatio: boolean;
+  shadow: boolean;
+  shadowColor: string;
+  shadowBlur: number;
+  shadowOffsetX: number;
+  shadowOffsetY: number;
+  glow: boolean;
+  glowColor: string;
+  glowBlur: number;
+  brightness: number; // 0-2
+  contrast: number; // 0-2
+  saturation: number; // 0-2
+  blur: number; // px
+  hue: number; // degrees
+  visible: boolean;
+  z: number; // layer order
+}
+
 export interface IconLayer {
   id: string;
   iconId: string;
