@@ -1456,6 +1456,7 @@ function DeviceNode({ d, guides, setGuides, setDistanceInfo, onDragStart, onDrag
   return (
     <div
       className="absolute cursor-move"
+      data-device-id={d.id}
       style={{ 
         left: d.x, 
         top: d.y, 
@@ -1684,14 +1685,21 @@ export function StagePreview({ toolMode = 'select', onContextMenu }: { toolMode?
             e.preventDefault();
             const assetId = e.dataTransfer.getData('text/asset-id');
             if (assetId) {
-              // Calculate drop position relative to canvas
-              const rect = e.currentTarget.getBoundingClientRect();
-              const dropX = (e.clientX - rect.left) / zoom / p.canvas.w;
-              const dropY = (e.clientY - rect.top) / zoom / p.canvas.h;
+              // Check if dropped on a device
+              const target = e.target as HTMLElement;
+              const deviceElement = target.closest('[data-device-id]');
               
-              // Add canvas image at drop position
-              const addCanvasImage = useStudio.getState().addCanvasImage;
-              addCanvasImage(assetId, dropX, dropY);
+              // If dropped on device, don't create canvas image (device will handle it)
+              if (!deviceElement) {
+                // Calculate drop position relative to canvas
+                const rect = e.currentTarget.getBoundingClientRect();
+                const dropX = (e.clientX - rect.left) / zoom / p.canvas.w;
+                const dropY = (e.clientY - rect.top) / zoom / p.canvas.h;
+                
+                // Add canvas image at drop position
+                const addCanvasImage = useStudio.getState().addCanvasImage;
+                addCanvasImage(assetId, dropX, dropY);
+              }
             }
           }}
         >

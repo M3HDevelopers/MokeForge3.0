@@ -66,7 +66,23 @@ export function Editor() {
       else if (mod && e.key.toLowerCase() === 'y') { e.preventDefault(); redo(); }
       else if (mod && e.key.toLowerCase() === 's') { e.preventDefault(); void saveNow(false); }
       else if (mod && e.key.toLowerCase() === 'd') {
-        if (selection?.kind === 'device' && selection.id) { e.preventDefault(); duplicateDevice(selection.id); }
+        e.preventDefault();
+        if (selection?.kind === 'device' && selection.id) {
+          duplicateDevice(selection.id);
+        } else if (selection?.kind === 'canvasImage' && selection.id) {
+          const project = useStudio.getState().project;
+          if (project) {
+            const canvasImage = project.canvasImages?.find(img => img.id === selection.id);
+            if (canvasImage) {
+              checkpoint();
+              update(p => ({
+                ...p,
+                canvasImages: [...(p.canvasImages || []), { ...canvasImage, id: Math.random().toString(36).slice(2), x: canvasImage.x + 0.02, y: canvasImage.y + 0.02 }]
+              }));
+              toast('Canvas image duplicated');
+            }
+          }
+        }
       }
       else if ((e.key === 'Delete' || e.key === 'Backspace') && selection?.id) {
         e.preventDefault();
@@ -81,6 +97,9 @@ export function Editor() {
         } else if (selection.kind === 'deco') {
           update(p => ({ ...p, decos: p.decos.filter(d => d.id !== selection.id) }), false);
           setSelection(null);
+        } else if (selection.kind === 'canvasImage') {
+          const removeCanvasImage = useStudio.getState().removeCanvasImage;
+          removeCanvasImage(selection.id);
         }
       }
       else if (e.key === 'Escape') {
@@ -130,6 +149,8 @@ export function Editor() {
           update(p => ({ ...p, textboxes: p.textboxes.map(t => t.id === selection.id ? { ...t, x: t.x + (dx / p.canvas.w), y: t.y + (dy / p.canvas.h) } : t) }), false);
         } else if (selection.kind === 'deco') {
           update(p => ({ ...p, decos: p.decos.map(d => d.id === selection.id ? { ...d, x: d.x + (dx / p.canvas.w), y: d.y + (dy / p.canvas.h) } : d) }), false);
+        } else if (selection.kind === 'canvasImage') {
+          update(p => ({ ...p, canvasImages: (p.canvasImages || []).map(img => img.id === selection.id ? { ...img, x: img.x + (dx / p.canvas.w), y: img.y + (dy / p.canvas.h) } : img) }), false);
         }
       }
       else if (mod && e.key.toLowerCase() === 'g') { e.preventDefault(); setGenOpen(true); }

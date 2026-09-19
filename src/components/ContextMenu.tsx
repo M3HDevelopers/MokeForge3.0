@@ -147,6 +147,8 @@ export function ContextMenu({ x, y, onClose }: ContextMenuProps) {
         return buildTextBoxMenu(selection);
       case 'icon':
         return buildIconMenu(selection);
+      case 'canvasImage':
+        return buildCanvasImageMenu(selection);
       case 'deco':
         return buildDecorationMenu(selection);
       case 'logo':
@@ -271,6 +273,92 @@ export function ContextMenu({ x, y, onClose }: ContextMenuProps) {
 
   // Text box menu
   const buildTextBoxMenu = (selection: Selection): MenuSection[] => {
+    const textbox = project.textboxes.find(t => t.id === selection.id);
+    if (!textbox) return [];
+
+    const locked = isLocked('textbox', textbox.id);
+
+    return [
+      {
+        title: 'TEXT BOX',
+        items: [
+          { id: 'duplicate', label: 'Duplicate Text Box', icon: IcCopy, shortcut: 'Ctrl+D', disabled: locked, action: () => { checkpoint(); update(p => ({ ...p, textboxes: [...p.textboxes, { ...textbox, id: Math.random().toString(36).slice(2), x: textbox.x + 0.02, y: textbox.y + 0.02 }] })); toast('Text box duplicated'); } },
+          { id: 'delete', label: 'Delete Text Box', icon: IcTrash, shortcut: 'Del', disabled: locked, action: () => { checkpoint(); update(p => ({ ...p, textboxes: p.textboxes.filter(t => t.id !== textbox.id) })); toast('Text box deleted'); } },
+        ]
+      },
+      {
+        title: 'LOCK',
+        items: [
+          { id: 'lock', label: locked ? 'Unlock Text Box' : 'Lock Text Box', icon: locked ? IcUnlock : IcLock, action: () => { 
+            if (locked) { unlockObject('textbox', textbox.id); toast('Text box unlocked'); }
+            else { lockObject('textbox', textbox.id); toast('Text box locked'); }
+          }},
+        ]
+      },
+      {
+        title: 'VISIBILITY',
+        items: [
+          { id: 'toggle-visibility', label: textbox.opacity > 0 ? 'Hide Text Box' : 'Show Text Box', icon: textbox.opacity > 0 ? IcEyeOff : IcEye, disabled: locked, action: () => { checkpoint(); update(p => ({ ...p, textboxes: p.textboxes.map(t => t.id === textbox.id ? { ...t, opacity: t.opacity === 0 ? 1 : 0 } : t) })); toast(textbox.opacity > 0 ? 'Text box hidden' : 'Text box shown'); } },
+        ]
+      },
+      {
+        title: 'PROPERTIES',
+        items: [
+          { id: 'edit-props', label: 'Edit Properties', icon: IcType, action: () => { setSelection({ kind: 'textbox', id: textbox.id }); toast('Properties panel focused'); } },
+        ]
+      }
+    ];
+  };
+
+  // Canvas Image menu
+  const buildCanvasImageMenu = (selection: Selection): MenuSection[] => {
+    const canvasImage = project.canvasImages?.find(img => img.id === selection.id);
+    if (!canvasImage) return [];
+
+    const locked = isLocked('canvasImage', canvasImage.id);
+    const asset = project.assets.find(a => a.id === canvasImage.assetId);
+
+    return [
+      {
+        title: 'CANVAS IMAGE',
+        items: [
+          { id: 'duplicate', label: 'Duplicate Image', icon: IcCopy, shortcut: 'Ctrl+D', disabled: locked, action: () => { checkpoint(); update(p => ({ ...p, canvasImages: [...(p.canvasImages || []), { ...canvasImage, id: Math.random().toString(36).slice(2), x: canvasImage.x + 0.02, y: canvasImage.y + 0.02 }] })); toast('Image duplicated'); } },
+          { id: 'delete', label: 'Delete Image', icon: IcTrash, shortcut: 'Del', disabled: locked, action: () => { checkpoint(); update(p => ({ ...p, canvasImages: (p.canvasImages || []).filter(img => img.id !== canvasImage.id) })); setSelection(null); toast('Image deleted'); } },
+        ]
+      },
+      {
+        title: 'ARRANGE',
+        items: [
+          { id: 'forward', label: 'Bring Forward', icon: IcUp, disabled: locked, action: () => { checkpoint(); update(p => ({ ...p, canvasImages: (p.canvasImages || []).map(img => img.id === canvasImage.id ? { ...img, z: img.z + 1 } : img) })); toast('Brought forward'); } },
+          { id: 'backward', label: 'Send Backward', icon: IcDown, disabled: locked, action: () => { checkpoint(); update(p => ({ ...p, canvasImages: (p.canvasImages || []).map(img => img.id === canvasImage.id ? { ...img, z: img.z - 1 } : img) })); toast('Sent backward'); } },
+        ]
+      },
+      {
+        title: 'LOCK',
+        items: [
+          { id: 'lock', label: locked ? 'Unlock Image' : 'Lock Image', icon: locked ? IcUnlock : IcLock, action: () => { 
+            if (locked) { unlockObject('canvasImage', canvasImage.id); toast('Image unlocked'); }
+            else { lockObject('canvasImage', canvasImage.id); toast('Image locked'); }
+          }},
+        ]
+      },
+      {
+        title: 'VISIBILITY',
+        items: [
+          { id: 'toggle-visibility', label: canvasImage.visible ? 'Hide Image' : 'Show Image', icon: canvasImage.visible ? IcEyeOff : IcEye, disabled: locked, action: () => { checkpoint(); update(p => ({ ...p, canvasImages: (p.canvasImages || []).map(img => img.id === canvasImage.id ? { ...img, visible: !img.visible } : img) })); toast(canvasImage.visible ? 'Image hidden' : 'Image shown'); } },
+        ]
+      },
+      {
+        title: 'PROPERTIES',
+        items: [
+          { id: 'edit-props', label: 'Edit Properties', icon: IcType, action: () => { setSelection({ kind: 'canvasImage', id: canvasImage.id }); toast('Properties panel focused'); } },
+        ]
+      }
+    ];
+  };
+
+  // Text box menu (continued)
+  const buildTextBoxMenuOld = (selection: Selection): MenuSection[] => {
     const textbox = project.textboxes.find(t => t.id === selection.id);
     if (!textbox) return [];
 

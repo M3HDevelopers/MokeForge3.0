@@ -624,14 +624,23 @@ export const useStudio = create<StudioState>((set, get) => ({
     const asset = project.assets.find(a => a.id === assetId);
     if (!asset) return;
     
-    // Calculate initial size based on asset aspect ratio
+    // Calculate initial size - use actual screenshot size, max 50% of canvas
     const aspectRatio = asset.w / asset.h;
-    const initialWidth = 0.3; // 30% of canvas width
-    const initialHeight = initialWidth / aspectRatio;
+    const canvasAspect = project.canvas.w / project.canvas.h;
+    
+    // Calculate size to fit actual screenshot dimensions
+    let initialWidth = Math.min(0.5, asset.w / project.canvas.w);
+    let initialHeight = initialWidth / aspectRatio;
+    
+    // If height exceeds 50%, scale down
+    if (initialHeight > 0.5) {
+      initialHeight = 0.5;
+      initialWidth = initialHeight * aspectRatio;
+    }
     
     // Use provided position or default to center
-    const posX = x !== undefined ? x - initialWidth / 2 : 0.35;
-    const posY = y !== undefined ? y - initialHeight / 2 : 0.35;
+    const posX = x !== undefined ? x - initialWidth / 2 : (1 - initialWidth) / 2;
+    const posY = y !== undefined ? y - initialHeight / 2 : (1 - initialHeight) / 2;
     
     get().update(p => ({
       ...p,
