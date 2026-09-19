@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
 import { IcSpark, IcLayers, IcWand, IcExport, IcDice, LogoMark } from '../icons';
+import { Footer } from '../components/Footer';
 
 export function LandingPage() {
   const { isAuthenticated } = useAuth();
@@ -183,19 +184,7 @@ export function LandingPage() {
       </section>
 
       {/* Footer */}
-      <footer className="border-t border-line2 bg-panel">
-        <div className="max-w-7xl mx-auto px-6 py-8">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <LogoMark size={24} />
-              <span className="font-bold" style={{ fontFamily: 'var(--font-disp)' }}>MockForge</span>
-            </div>
-            <p className="text-sm" style={{ color: 'var(--color-dim)' }}>
-              © 2024 MockForge. All rights reserved.
-            </p>
-          </div>
-        </div>
-      </footer>
+      <Footer />
     </div>
   );
 }
