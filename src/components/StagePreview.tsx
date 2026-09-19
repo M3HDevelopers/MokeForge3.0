@@ -1730,6 +1730,7 @@ export function StagePreview({ toolMode = 'select', onContextMenu }: { toolMode?
                     bgColor: null,
                     shadow: false,
                     glow: false,
+                    z: p.icons.length + 1, // Icons start from z-index 1+
                   }],
                 }));
               } else if (decoPreset) {
@@ -1753,6 +1754,7 @@ export function StagePreview({ toolMode = 'select', onContextMenu }: { toolMode?
                     depth: 'front',
                     hue: null,
                     seed: Math.floor(Math.random() * 1e9),
+                    z: p.decos.length + 1, // Decos start from z-index 1+
                   }],
                 }), false);
               }

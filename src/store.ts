@@ -525,7 +525,7 @@ export const useStudio = create<StudioState>((set, get) => ({
       const offset = p.devices.length * 24;
       d.x = clamp(d.x + offset, 0, p.canvas.w - d.w);
       d.y = clamp(d.y + offset, 0, p.canvas.h - d.w / DEVICE_META[kind].aspect);
-      d.z = p.devices.length;
+      d.z = 100 + p.devices.length; // Devices start from z-index 100+
       return { ...p, devices: [...p.devices, d] };
     });
     const p = get().project!;
@@ -606,6 +606,7 @@ export const useStudio = create<StudioState>((set, get) => ({
         shadow: false,
         glow: false,
         glowColor: '#ff6b3d',
+        z: p.textboxes.length + 1, // Textboxes start from z-index 1+
       }],
     }));
     set({ selection: { kind: 'textbox', id } });
