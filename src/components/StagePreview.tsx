@@ -968,12 +968,15 @@ function TextBoxLayer({ textbox, canvasW, canvasH, onDragStart, onDragEnd }: { t
   );
 }
 
-function CanvasImageLayer({ canvasImage, canvasW, canvasH, onDragStart, onDragEnd }: { 
+function CanvasImageLayer({ canvasImage, canvasW, canvasH, onDragStart, onDragEnd, guides, setGuides, setDistanceInfo }: { 
   canvasImage: any; 
   canvasW: number; 
   canvasH: number; 
   onDragStart: () => void; 
   onDragEnd: () => void;
+  guides: { v: number | null; h: number | null };
+  setGuides: (g: { v: number | null; h: number | null }) => void;
+  setDistanceInfo: (info: { left?: number; right?: number; top?: number; bottom?: number } | null) => void;
 }) {
   const project = useStudio(s => s.project)!;
   const setSelection = useStudio(s => s.setSelection);
@@ -994,7 +997,7 @@ function CanvasImageLayer({ canvasImage, canvasW, canvasH, onDragStart, onDragEn
   const height = canvasImage.height * canvasH;
   
   const dragRef = useRef<{ sx: number; sy: number; ox: number; oy: number } | null>(null);
-  const resizeRef = useRef<{ sx: number; sy: number; ow: number; oh: number } | null>(null);
+  const resizeRef = useRef<{ sx: number; sy: number; ow: number; oh: number; ox: number; oy: number; direction: string } | null>(null);
   const rotateRef = useRef<{ sx: number; sy: number; startAngle: number } | null>(null);
   const isLocked = lockedObjects.has(`canvasImage:${canvasImage.id}`);
   
@@ -1027,9 +1030,35 @@ function CanvasImageLayer({ canvasImage, canvasW, canvasH, onDragStart, onDragEn
     if (!drag) return;
     const dx = (e.clientX - drag.sx) / zoom / canvasW;
     const dy = (e.clientY - drag.sy) / zoom / canvasH;
+    
+    let nx = drag.ox + dx;
+    let ny = drag.oy + dy;
+    
+    // Calculate center for guide snapping
+    const cx = nx * canvasW + width / 2;
+    const cy = ny * canvasH + height / 2;
+    const tx = canvasW / 2;
+    const ty = canvasH / 2;
+    const th = 8 / zoom;
+    
+    // Center snapping
+    const gv = Math.abs(cx - tx) < th;
+    const gh = Math.abs(cy - ty) < th;
+    if (gv) nx = (tx - width / 2) / canvasW;
+    if (gh) ny = (ty - height / 2) / canvasH;
+    
+    setGuides({ v: gv ? tx : null, h: gh ? ty : null });
+    
+    // Calculate distances
+    const left = Math.round(nx * canvasW);
+    const right = Math.round(canvasW - (nx * canvasW + width));
+    const top = Math.round(ny * canvasH);
+    const bottom = Math.round(canvasH - (ny * canvasH + height));
+    setDistanceInfo({ left, right, top, bottom });
+    
     update(p => ({
       ...p,
-      canvasImages: p.canvasImages.map(img => img.id === canvasImage.id ? { ...img, x: drag.ox + dx, y: drag.oy + dy } : img)
+      canvasImages: p.canvasImages.map(img => img.id === canvasImage.id ? { ...img, x: nx, y: ny } : img)
     }), false);
   };
   
@@ -1039,13 +1068,21 @@ function CanvasImageLayer({ canvasImage, canvasW, canvasH, onDragStart, onDragEn
   };
   
   // Resize handlers
-  const onResizeStart = (e: RPointerEvent<HTMLDivElement>) => {
+  const onResizeStart = (e: RPointerEvent<HTMLDivElement>, direction: string = 'br') => {
     e.stopPropagation();
     if (isLocked) return;
     
     checkpoint();
     (e.target as HTMLElement).setPointerCapture(e.pointerId);
-    resizeRef.current = { sx: e.clientX, sy: e.clientY, ow: canvasImage.width, oh: canvasImage.height };
+    resizeRef.current = { 
+      sx: e.clientX, 
+      sy: e.clientY, 
+      ow: canvasImage.width, 
+      oh: canvasImage.height,
+      ox: canvasImage.x,
+      oy: canvasImage.y,
+      direction
+    };
     onDragStart();
   };
   
@@ -1055,16 +1092,44 @@ function CanvasImageLayer({ canvasImage, canvasW, canvasH, onDragStart, onDragEn
     const dx = (e.clientX - resize.sx) / zoom / canvasW;
     const dy = (e.clientY - resize.sy) / zoom / canvasH;
     
-    let newWidth = resize.ow + dx;
-    let newHeight = resize.oh + dy;
+    let newWidth = resize.ow;
+    let newHeight = resize.oh;
+    let newX = resize.ox;
+    let newY = resize.oy;
+    
+    const dir = resize.direction;
+    
+    // Handle different resize directions
+    if (dir.includes('r')) {
+      newWidth = resize.ow + dx;
+    }
+    if (dir.includes('l')) {
+      newWidth = resize.ow - dx;
+      newX = resize.ox + dx;
+    }
+    if (dir.includes('b')) {
+      newHeight = resize.oh + dy;
+    }
+    if (dir.includes('t')) {
+      newHeight = resize.oh - dy;
+      newY = resize.oy + dy;
+    }
     
     // Maintain aspect ratio if enabled
     if (canvasImage.maintainAspectRatio) {
       const aspectRatio = asset.w / asset.h;
-      if (Math.abs(dx) > Math.abs(dy)) {
-        newHeight = newWidth / aspectRatio;
-      } else {
-        newWidth = newHeight * aspectRatio;
+      if (dir === 'br' || dir === 'tr' || dir === 'bl' || dir === 'tl') {
+        if (Math.abs(dx) > Math.abs(dy)) {
+          newHeight = newWidth / aspectRatio;
+          if (dir.includes('t')) {
+            newY = resize.oy + (resize.oh - newHeight);
+          }
+        } else {
+          newWidth = newHeight * aspectRatio;
+          if (dir.includes('l')) {
+            newX = resize.ox + (resize.ow - newWidth);
+          }
+        }
       }
     }
     
@@ -1074,7 +1139,13 @@ function CanvasImageLayer({ canvasImage, canvasW, canvasH, onDragStart, onDragEn
     
     update(p => ({
       ...p,
-      canvasImages: p.canvasImages.map(img => img.id === canvasImage.id ? { ...img, width: newWidth, height: newHeight } : img)
+      canvasImages: p.canvasImages.map(img => img.id === canvasImage.id ? { 
+        ...img, 
+        width: newWidth, 
+        height: newHeight,
+        x: newX,
+        y: newY
+      } : img)
     }), false);
   };
   
@@ -1167,21 +1238,80 @@ function CanvasImageLayer({ canvasImage, canvasW, canvasH, onDragStart, onDragEn
         }}
       />
       
-      {/* Resize handle */}
+      {/* Selection handles */}
       {selected && !isLocked && (
         <>
+          {/* Corner resize handles */}
+          {/* Top-left */}
           <div
             className="absolute bg-acc border-2 border-ink"
-            style={{
-              right: -6,
-              bottom: -6,
-              width: 12,
-              height: 12,
-              borderRadius: 2,
-              cursor: 'nwse-resize',
-              zIndex: 101,
-            }}
-            onPointerDown={onResizeStart}
+            style={{ left: -6, top: -6, width: 12, height: 12, borderRadius: 2, cursor: 'nwse-resize', zIndex: 101 }}
+            onPointerDown={(e) => { e.stopPropagation(); onResizeStart(e, 'tl'); }}
+            onPointerMove={onResizeMove}
+            onPointerUp={onResizeEnd}
+            onPointerCancel={onResizeEnd}
+          />
+          {/* Top-right */}
+          <div
+            className="absolute bg-acc border-2 border-ink"
+            style={{ right: -6, top: -6, width: 12, height: 12, borderRadius: 2, cursor: 'nesw-resize', zIndex: 101 }}
+            onPointerDown={(e) => { e.stopPropagation(); onResizeStart(e, 'tr'); }}
+            onPointerMove={onResizeMove}
+            onPointerUp={onResizeEnd}
+            onPointerCancel={onResizeEnd}
+          />
+          {/* Bottom-left */}
+          <div
+            className="absolute bg-acc border-2 border-ink"
+            style={{ left: -6, bottom: -6, width: 12, height: 12, borderRadius: 2, cursor: 'nesw-resize', zIndex: 101 }}
+            onPointerDown={(e) => { e.stopPropagation(); onResizeStart(e, 'bl'); }}
+            onPointerMove={onResizeMove}
+            onPointerUp={onResizeEnd}
+            onPointerCancel={onResizeEnd}
+          />
+          {/* Bottom-right */}
+          <div
+            className="absolute bg-acc border-2 border-ink"
+            style={{ right: -6, bottom: -6, width: 12, height: 12, borderRadius: 2, cursor: 'nwse-resize', zIndex: 101 }}
+            onPointerDown={(e) => { e.stopPropagation(); onResizeStart(e, 'br'); }}
+            onPointerMove={onResizeMove}
+            onPointerUp={onResizeEnd}
+            onPointerCancel={onResizeEnd}
+          />
+          
+          {/* Side resize handles */}
+          {/* Top */}
+          <div
+            className="absolute bg-acc border-2 border-ink"
+            style={{ left: '50%', top: -6, transform: 'translateX(-50%)', width: 12, height: 12, borderRadius: 2, cursor: 'ns-resize', zIndex: 101 }}
+            onPointerDown={(e) => { e.stopPropagation(); onResizeStart(e, 't'); }}
+            onPointerMove={onResizeMove}
+            onPointerUp={onResizeEnd}
+            onPointerCancel={onResizeEnd}
+          />
+          {/* Bottom */}
+          <div
+            className="absolute bg-acc border-2 border-ink"
+            style={{ left: '50%', bottom: -6, transform: 'translateX(-50%)', width: 12, height: 12, borderRadius: 2, cursor: 'ns-resize', zIndex: 101 }}
+            onPointerDown={(e) => { e.stopPropagation(); onResizeStart(e, 'b'); }}
+            onPointerMove={onResizeMove}
+            onPointerUp={onResizeEnd}
+            onPointerCancel={onResizeEnd}
+          />
+          {/* Left */}
+          <div
+            className="absolute bg-acc border-2 border-ink"
+            style={{ left: -6, top: '50%', transform: 'translateY(-50%)', width: 12, height: 12, borderRadius: 2, cursor: 'ew-resize', zIndex: 101 }}
+            onPointerDown={(e) => { e.stopPropagation(); onResizeStart(e, 'l'); }}
+            onPointerMove={onResizeMove}
+            onPointerUp={onResizeEnd}
+            onPointerCancel={onResizeEnd}
+          />
+          {/* Right */}
+          <div
+            className="absolute bg-acc border-2 border-ink"
+            style={{ right: -6, top: '50%', transform: 'translateY(-50%)', width: 12, height: 12, borderRadius: 2, cursor: 'ew-resize', zIndex: 101 }}
+            onPointerDown={(e) => { e.stopPropagation(); onResizeStart(e, 'r'); }}
             onPointerMove={onResizeMove}
             onPointerUp={onResizeEnd}
             onPointerCancel={onResizeEnd}
@@ -1546,6 +1676,24 @@ export function StagePreview({ toolMode = 'select', onContextMenu }: { toolMode?
               handleMarqueeStart(e);
             }
           }}
+          onDragOver={(e) => {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'copy';
+          }}
+          onDrop={(e) => {
+            e.preventDefault();
+            const assetId = e.dataTransfer.getData('text/asset-id');
+            if (assetId) {
+              // Calculate drop position relative to canvas
+              const rect = e.currentTarget.getBoundingClientRect();
+              const dropX = (e.clientX - rect.left) / zoom / p.canvas.w;
+              const dropY = (e.clientY - rect.top) / zoom / p.canvas.h;
+              
+              // Add canvas image at drop position
+              const addCanvasImage = useStudio.getState().addCanvasImage;
+              addCanvasImage(assetId, dropX, dropY);
+            }
+          }}
         >
           <div className="absolute top-0 left-0 origin-top-left overflow-hidden" style={{ width: p.canvas.w, height: p.canvas.h, transform: `scale(${zoom})` }}>
             <PaintCanvas p={p} depth="all" />
@@ -1561,7 +1709,7 @@ export function StagePreview({ toolMode = 'select', onContextMenu }: { toolMode?
               <TextBoxLayer key={textbox.id} textbox={textbox} canvasW={p.canvas.w} canvasH={p.canvas.h} onDragStart={() => setIsDragging(true)} onDragEnd={() => setIsDragging(false)} />
             ))}
             {p.canvasImages?.map(canvasImage => (
-              <CanvasImageLayer key={canvasImage.id} canvasImage={canvasImage} canvasW={p.canvas.w} canvasH={p.canvas.h} onDragStart={() => setIsDragging(true)} onDragEnd={() => setIsDragging(false)} />
+              <CanvasImageLayer key={canvasImage.id} canvasImage={canvasImage} canvasW={p.canvas.w} canvasH={p.canvas.h} onDragStart={() => setIsDragging(true)} onDragEnd={() => setIsDragging(false)} guides={guides} setGuides={setGuides} setDistanceInfo={setDistanceInfo} />
             ))}
             <LogoOverlay p={p} />
             <TextOverlay p={p} />

@@ -163,7 +163,7 @@ interface StudioState {
   removeTextBox: (id: string) => void;
   
   // Canvas Image actions
-  addCanvasImage: (assetId: string) => void;
+  addCanvasImage: (assetId: string, x?: number, y?: number) => void;
   removeCanvasImage: (id: string) => void;
   
   // Clipboard & Lock System
@@ -616,7 +616,7 @@ export const useStudio = create<StudioState>((set, get) => ({
     set(s => s.selection?.id === id ? { selection: null } : s);
   },
   
-  addCanvasImage: (assetId) => {
+  addCanvasImage: (assetId, x, y) => {
     const id = uid();
     const project = get().project;
     if (!project) return;
@@ -629,13 +629,17 @@ export const useStudio = create<StudioState>((set, get) => ({
     const initialWidth = 0.3; // 30% of canvas width
     const initialHeight = initialWidth / aspectRatio;
     
+    // Use provided position or default to center
+    const posX = x !== undefined ? x - initialWidth / 2 : 0.35;
+    const posY = y !== undefined ? y - initialHeight / 2 : 0.35;
+    
     get().update(p => ({
       ...p,
       canvasImages: [...p.canvasImages, {
         id,
         assetId,
-        x: 0.35, // center-ish position
-        y: 0.35,
+        x: posX,
+        y: posY,
         width: initialWidth,
         height: initialHeight,
         rotation: 0,
