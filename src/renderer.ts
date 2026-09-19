@@ -228,6 +228,7 @@ const MONO = '"JetBrains Mono", monospace';
 
 function drawTextBlock(ctx: CanvasRenderingContext2D, p: Project) {
   const t = p.text;
+  if (!t) return;
   if (!t.enabled || (!t.title && !t.subtitle && !(t.showBadges && t.badges.length))) return;
   const { w: cw, h: ch } = p.canvas;
   const M = Math.round(Math.min(cw, ch) * 0.055);
@@ -331,7 +332,7 @@ function drawTextBlock(ctx: CanvasRenderingContext2D, p: Project) {
   if (t.subtitle) blockH += (blockH ? ts * 0.34 : 0) + subFs * 1.4;
   if (t.showBadges && rowsUsed) blockH += (blockH ? ts * 0.42 : 0) + rowsUsed * (pillH + gap) - gap;
 
-  const pos = t.position;
+  const pos = t.position || 'bottom-left';
   const bx = pos.includes('left') ? M : pos.includes('right') ? cw - M - blockW : (cw - blockW) / 2;
   const by = pos.startsWith('top') ? M : pos.startsWith('bottom') ? ch - M - blockH : (ch - blockH) / 2;
 

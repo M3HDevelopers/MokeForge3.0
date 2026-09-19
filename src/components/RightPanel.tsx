@@ -385,7 +385,11 @@ function TextProps() {
   
   if (!t) return null;
   
-  const patch = (fn: (x: typeof t) => typeof t) => update(p => ({ ...p, text: fn(p.text) }), false);
+  // Safe patch function with null checks
+  const patch = (fn: (x: typeof t) => typeof t) => update(p => {
+    if (!p.text) return p;
+    return { ...p, text: fn(p.text) };
+  }, false);
 
   return (
     <>
@@ -858,8 +862,8 @@ function LayersList() {
         })}
 
         {([
-          { kind: 'text' as const, label: 'Text block', on: project.text.enabled, toggle: () => update(p => ({ ...p, text: { ...p.text, enabled: !p.text.enabled } }), false) },
-          { kind: 'logo' as const, label: 'Logo', on: project.logo.enabled, toggle: () => update(p => ({ ...p, logo: { ...p.logo, enabled: !p.logo.enabled } }), false) },
+          { kind: 'text' as const, label: 'Text block', on: project.text?.enabled ?? true, toggle: () => update(p => ({ ...p, text: { ...p.text, enabled: !(p.text?.enabled ?? true) } }), false) },
+          { kind: 'logo' as const, label: 'Logo', on: project.logo?.enabled ?? false, toggle: () => update(p => ({ ...p, logo: { ...p.logo, enabled: !(p.logo?.enabled ?? false) } }), false) },
           { kind: 'background' as const, label: 'Background', on: true, toggle: () => undefined },
         ]).map(l => {
           const on = selection?.kind === l.kind;

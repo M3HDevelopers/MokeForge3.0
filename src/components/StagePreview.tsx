@@ -519,15 +519,15 @@ function PlaceholderScreen({ d, highlight }: { d: DeviceLayer; highlight: boolea
 }
 
 function TextOverlay({ p }: { p: Project }) {
-  const t = p.text;
-  if (!t) return null;
-  
+  // Hooks must be called BEFORE any conditional returns
   const selected = useStudio(s => s.selection?.kind === 'text');
   const setSelection = useStudio(s => s.setSelection);
   const update = useStudio(s => s.update);
   const checkpoint = useStudio(s => s.checkpoint);
   const zoom = useStudio(s => s.zoom);
   
+  const t = p.text;
+  if (!t) return null;
   if (!t.enabled || (!t.title && !t.subtitle && !(t.showBadges && t.badges.length))) return null;
   
   const { w: cw, h: ch } = p.canvas;
@@ -563,8 +563,10 @@ function TextOverlay({ p }: { p: Project }) {
   
   const useAbsolute = t.x !== undefined && t.y !== undefined;
   
-  const align = t.position.includes('left') ? 'flex-start' : t.position.includes('right') ? 'flex-end' : 'center';
-  const justify = t.position.startsWith('top') ? 'flex-start' : t.position.startsWith('bottom') ? 'flex-end' : 'center';
+  // Safe position access with fallback
+  const pos = t.position || 'bottom-left';
+  const align = pos.includes('left') ? 'flex-start' : pos.includes('right') ? 'flex-end' : 'center';
+  const justify = pos.startsWith('top') ? 'flex-start' : pos.startsWith('bottom') ? 'flex-end' : 'center';
   const lightText = luminance(color) > 0.5;
   
   const dragRef = useRef<{ sx: number; sy: number; ox: number; oy: number } | null>(null);
@@ -575,8 +577,8 @@ function TextOverlay({ p }: { p: Project }) {
     checkpoint();
     (e.target as HTMLElement).setPointerCapture(e.pointerId);
     
-    const currentX = t.x !== undefined ? t.x : (t.position.includes('left') ? M : t.position.includes('right') ? cw - M : cw / 2);
-    const currentY = t.y !== undefined ? t.y : (t.position.startsWith('top') ? M : t.position.startsWith('bottom') ? ch - M : ch / 2);
+    const currentX = t.x !== undefined ? t.x : (pos.includes('left') ? M : pos.includes('right') ? cw - M : cw / 2);
+    const currentY = t.y !== undefined ? t.y : (pos.startsWith('top') ? M : pos.startsWith('bottom') ? ch - M : ch / 2);
     
     dragRef.current = { sx: e.clientX, sy: e.clientY, ox: currentX, oy: currentY };
   };
@@ -1377,6 +1379,56 @@ export function StagePreview({ toolMode = 'select', onContextMenu }: { toolMode?
                     width: t.width * p.canvas.w,
                     height: t.fontSize * 1.5
                   }));
+                }
+              } else if (selection.kind === 'text') {
+                // Main text block (title/subtitle)
+                const textBlock = p.text;
+                if (textBlock && textBlock.enabled) {
+                  const M = Math.round(Math.min(p.canvas.w, p.canvas.h) * 0.055);
+                  const ts = clamp(p.canvas.w * 0.037, 24, 58) * textBlock.scale;
+                  const estimatedWidth = p.canvas.w * 0.6;
+                  const estimatedHeight = ts * 2.5;
+                  
+                  // Calculate position based on textBlock.position
+                  let textX = M;
+                  let textY = p.canvas.h - M - estimatedHeight;
+                  
+                  if (textBlock.x !== undefined && textBlock.y !== undefined) {
+                    textX = textBlock.x;
+                    textY = textBlock.y;
+                  } else {
+                    // Use position preset
+                    if (textBlock.position.includes('left')) textX = M;
+                    else if (textBlock.position.includes('right')) textX = p.canvas.w - M - estimatedWidth;
+                    else textX = (p.canvas.w - estimatedWidth) / 2;
+                    
+                    if (textBlock.position.startsWith('top')) textY = M;
+                    else if (textBlock.position.startsWith('bottom')) textY = p.canvas.h - M - estimatedHeight;
+                    else textY = (p.canvas.h - estimatedHeight) / 2;
+                  }
+                  
+                  selectedObject = {
+                    x: textX,
+                    y: textY,
+                    width: estimatedWidth,
+                    height: estimatedHeight
+                  };
+                  
+                  // Other objects for alignment
+                  otherObjects = [
+                    ...p.devices.map(d => ({
+                      x: d.x,
+                      y: d.y,
+                      width: d.w,
+                      height: d.w / DEVICE_META[d.kind].aspect
+                    })),
+                    ...p.textboxes.map(t => ({
+                      x: t.x * p.canvas.w,
+                      y: t.y * p.canvas.h,
+                      width: t.width * p.canvas.w,
+                      height: t.fontSize * 1.5
+                    }))
+                  ];
                 }
               }
 
