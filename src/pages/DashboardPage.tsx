@@ -6,6 +6,7 @@ import { LogoMark, IcPlus, IcFolder, IcStar, IcSettings, IcLogout } from '../ico
 export function DashboardPage() {
   const { user, logout } = useAuth();
   const projects = useStudio(s => s.projects);
+  const loadingProjects = useStudio(s => s.loadingProjects);
   const openProject = useStudio(s => s.openProject);
   const createProject = useStudio(s => s.createProject);
 
@@ -108,7 +109,20 @@ export function DashboardPage() {
             </span>
           </div>
 
-          {projects.length === 0 ? (
+          {loadingProjects ? (
+            /* Skeleton Loading */
+            <div className="grid md:grid-cols-3 gap-6">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="card overflow-hidden animate-pulse">
+                  <div className="w-full aspect-video bg-panel2" />
+                  <div className="p-4 space-y-2">
+                    <div className="h-4 bg-panel2 rounded w-3/4" />
+                    <div className="h-3 bg-panel2 rounded w-1/2" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : projects.length === 0 ? (
             <div className="card border-dashed !border-line p-12 text-center">
               <IcFolder size={48} />
               <p className="text-lg font-medium mt-4 mb-2">No projects yet</p>

@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { authAPI } from '../services/api';
 
 export interface User {
   id: string;
@@ -30,13 +31,6 @@ interface AuthContextType extends AuthState {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Mock storage keys
-const AUTH_STORAGE_KEY = 'mockforge_auth';
-const USER_STORAGE_KEY = 'mockforge_user';
-
-// Mock OTP (in real app, this comes from backend)
-const MOCK_OTP = '123456';
-
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -45,82 +39,42 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Load auth state from localStorage on mount
   useEffect(() => {
-    const storedAuth = localStorage.getItem(AUTH_STORAGE_KEY);
-    const storedUser = localStorage.getItem(USER_STORAGE_KEY);
+    const token = localStorage.getItem('token');
+    const userData = localStorage.getItem('user');
     
-    if (storedAuth && storedUser) {
+    if (token && userData) {
       try {
-        const authData = JSON.parse(storedAuth);
-        const userData = JSON.parse(storedUser);
-        
-        if (authData.isAuthenticated) {
-          setUser(userData);
-          setIsAuthenticated(true);
-        }
+        const parsedUser = JSON.parse(userData);
+        setUser(parsedUser);
+        setIsAuthenticated(true);
       } catch (e) {
-        console.error('Failed to parse auth data:', e);
-        localStorage.removeItem(AUTH_STORAGE_KEY);
-        localStorage.removeItem(USER_STORAGE_KEY);
+        console.error('Failed to parse user ', e);
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
       }
     }
   }, []);
 
-  // Save auth state to localStorage
-  useEffect(() => {
-    if (isAuthenticated && user) {
-      localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify({ isAuthenticated }));
-      localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(user));
-    } else {
-      localStorage.removeItem(AUTH_STORAGE_KEY);
-      localStorage.removeItem(USER_STORAGE_KEY);
-    }
-  }, [isAuthenticated, user]);
-
   const clearError = () => setError(null);
-
-  // Mock API delay
-  const mockDelay = () => new Promise(resolve => setTimeout(resolve, 1000));
 
   const login = async (email: string, password: string) => {
     setIsLoading(true);
     setError(null);
     
     try {
-      await mockDelay();
+      const response = await authAPI.login(email, password);
       
-      // Mock validation
-      if (!email || !password) {
-        throw new Error('Email and password are required');
+      if (response.success) {
+        localStorage.setItem('token', response.token);
+        localStorage.setItem('user', JSON.stringify(response.user));
+        setUser(response.user);
+        setIsAuthenticated(true);
+      } else {
+        throw new Error(response.message || 'Login failed');
       }
-      
-      if (!email.includes('@')) {
-        throw new Error('Invalid email format');
-      }
-      
-      // Mock: Check if user exists (in real app, this calls backend)
-      const storedUser = localStorage.getItem(USER_STORAGE_KEY);
-      if (storedUser) {
-        const userData = JSON.parse(storedUser);
-        if (userData.email === email) {
-          setUser(userData);
-          setIsAuthenticated(true);
-          return;
-        }
-      }
-      
-      // Mock: Create a default user for demo
-      const mockUser: User = {
-        id: 'user_' + Date.now(),
-        name: email.split('@')[0],
-        email: email,
-        emailVerified: true, // For demo, assume verified
-        createdAt: Date.now(),
-      };
-      
-      setUser(mockUser);
-      setIsAuthenticated(true);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Login failed');
+      const errorMessage = err instanceof Error ? err.message : 'Login failed';
+      setError(errorMessage);
       throw err;
     } finally {
       setIsLoading(false);
@@ -132,37 +86,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setError(null);
     
     try {
-      await mockDelay();
+      const response = await authAPI.signup(name, email, password);
       
-      // Mock validation
-      if (!name || !email || !password) {
-        throw new Error('All fields are required');
+      if (response.success) {
+        localStorage.setItem('token', response.token);
+        localStorage.setItem('user', JSON.stringify(response.user));
+        setUser(response.user);
+        setIsAuthenticated(true);
+      } else {
+        throw new Error(response.message || 'Signup failed');
       }
-      
-      if (!email.includes('@')) {
-        throw new Error('Invalid email format');
-      }
-      
-      if (password.length < 6) {
-        throw new Error('Password must be at least 6 characters');
-      }
-      
-      // Mock: Create user (in real app, this calls backend)
-      const mockUser: User = {
-        id: 'user_' + Date.now(),
-        name: name,
-        email: email,
-        emailVerified: false, // Needs verification
-        createdAt: Date.now(),
-      };
-      
-      setUser(mockUser);
-      setIsAuthenticated(true);
-      
-      // In real app, backend sends OTP email
-      console.log('Mock OTP sent:', MOCK_OTP);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Signup failed');
+      const errorMessage = err instanceof Error ? err.message : 'Signup failed';
+      setError(errorMessage);
       throw err;
     } finally {
       setIsLoading(false);
@@ -170,11 +106,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const logout = () => {
+    // Call backend logout (optional, can be skipped for JWT)
+    authAPI.logout().catch(console.error);
+    
     setUser(null);
     setIsAuthenticated(false);
     setError(null);
-    localStorage.removeItem(AUTH_STORAGE_KEY);
-    localStorage.removeItem(USER_STORAGE_KEY);
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
   };
 
   const verifyEmail = async (otp: string) => {
@@ -182,22 +121,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setError(null);
     
     try {
-      await mockDelay();
+      const response = await authAPI.verifyEmail(otp);
       
-      if (!otp) {
-        throw new Error('OTP is required');
-      }
-      
-      if (otp !== MOCK_OTP) {
-        throw new Error('Invalid OTP. Please try again.');
-      }
-      
-      if (user) {
-        const updatedUser = { ...user, emailVerified: true };
-        setUser(updatedUser);
+      if (response.success) {
+        // Update user in state and localStorage
+        if (user) {
+          const updatedUser = { ...user, emailVerified: true };
+          setUser(updatedUser);
+          localStorage.setItem('user', JSON.stringify(updatedUser));
+        }
+      } else {
+        throw new Error(response.message || 'Verification failed');
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Verification failed');
+      const errorMessage = err instanceof Error ? err.message : 'Verification failed';
+      setError(errorMessage);
       throw err;
     } finally {
       setIsLoading(false);
@@ -209,11 +147,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setError(null);
     
     try {
-      await mockDelay();
-      // Mock: Resend OTP (in real app, this calls backend)
-      console.log('Mock OTP resent:', MOCK_OTP);
+      const response = await authAPI.resendOTP();
+      
+      if (!response.success) {
+        throw new Error(response.message || 'Failed to resend OTP');
+      }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to resend OTP');
+      const errorMessage = err instanceof Error ? err.message : 'Failed to resend OTP';
+      setError(errorMessage);
       throw err;
     } finally {
       setIsLoading(false);
@@ -225,20 +166,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setError(null);
     
     try {
-      await mockDelay();
+      const response = await authAPI.forgotPassword(email);
       
-      if (!email) {
-        throw new Error('Email is required');
+      if (!response.success) {
+        throw new Error(response.message || 'Failed to send reset code');
       }
-      
-      if (!email.includes('@')) {
-        throw new Error('Invalid email format');
-      }
-      
-      // Mock: Send reset OTP (in real app, this calls backend)
-      console.log('Mock password reset OTP sent:', MOCK_OTP);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to send reset code');
+      const errorMessage = err instanceof Error ? err.message : 'Failed to send reset code';
+      setError(errorMessage);
       throw err;
     } finally {
       setIsLoading(false);
@@ -250,24 +185,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setError(null);
     
     try {
-      await mockDelay();
-      
-      if (!otp || !newPassword) {
-        throw new Error('OTP and new password are required');
+      if (!user) {
+        throw new Error('User not found');
       }
       
-      if (otp !== MOCK_OTP) {
-        throw new Error('Invalid OTP');
-      }
+      const response = await authAPI.resetPassword(user.email, otp, newPassword);
       
-      if (newPassword.length < 6) {
-        throw new Error('Password must be at least 6 characters');
+      if (!response.success) {
+        throw new Error(response.message || 'Failed to reset password');
       }
-      
-      // Mock: Reset password (in real app, this calls backend)
-      console.log('Mock password reset successful');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to reset password');
+      const errorMessage = err instanceof Error ? err.message : 'Failed to reset password';
+      setError(errorMessage);
       throw err;
     } finally {
       setIsLoading(false);
@@ -278,6 +207,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (user) {
       const updatedUser = { ...user, ...data };
       setUser(updatedUser);
+      localStorage.setItem('user', JSON.stringify(updatedUser));
+      
+      // Call backend to update profile
+      authAPI.updateProfile(data).catch(console.error);
     }
   };
 
