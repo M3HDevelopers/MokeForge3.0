@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useStudio } from '../store';
 import type { BgStyle, DeviceLayer, LightType, Material, PatternKind, ShadowPreset } from '../types';
 import {
@@ -7,7 +8,7 @@ import {
 import { DECO_PRESETS } from '../templates';
 import { ColorInput, PosGrid, Section, Seg, SliderRow, Toggle } from './ui';
 import {
-  IcAlignH, IcAlignV, IcArrowL, IcCopy, IcDown, IcEye, IcEyeOff, IcLayers, IcTrash, IcUp,
+  IcAlignH, IcAlignV, IcArrowL, IcCopy, IcDown, IcEye, IcEyeOff, IcLayers, IcLock, IcTrash, IcUnlock, IcUp,
 } from '../icons';
 
 const BG_STYLE_OPTS: { id: BgStyle; label: string }[] = [
@@ -27,6 +28,8 @@ export function RightPanel() {
   return (
     <div className="w-[292px] shrink-0 border-l border-line2 bg-panel flex flex-col h-full overflow-hidden">
       <div className="flex-1 overflow-y-auto overflow-x-hidden bg-ink min-h-0">
+        {selection && <QuickActions />}
+        {selection && selection.kind !== 'background' && <UniversalTransform />}
         {device ? <DeviceProps d={device} />
           : icon ? <IconProps i={icon} />
           : deco ? <DecoProps d={deco} />
@@ -36,6 +39,333 @@ export function RightPanel() {
           : <BackgroundProps />}
         <LayersList />
       </div>
+    </div>
+  );
+}
+
+function UniversalTransform() {
+  const selection = useStudio(s => s.selection);
+  const project = useStudio(s => s.project)!;
+  const update = useStudio(s => s.update);
+  const checkpoint = useStudio(s => s.checkpoint);
+  const lockedObjects = useStudio(s => s.lockedObjects);
+
+  if (!selection || !selection.id) return null;
+
+  const isLocked = lockedObjects.has(`${selection.kind}:${selection.id}`);
+
+  // Get object based on selection kind
+  let obj: any = null;
+  if (selection.kind === 'device') {
+    obj = project.devices.find(d => d.id === selection.id);
+  } else if (selection.kind === 'icon') {
+    obj = project.icons.find(i => i.id === selection.id);
+  } else if (selection.kind === 'textbox') {
+    obj = project.textboxes.find(t => t.id === selection.id);
+  } else if (selection.kind === 'deco') {
+    obj = project.decos.find(d => d.id === selection.id);
+  }
+
+  if (!obj) return null;
+
+  const handleReset = () => {
+    checkpoint();
+    if (selection.kind === 'device') {
+      update(p => ({
+        ...p,
+        devices: p.devices.map(d => d.id === selection.id ? {
+          ...d,
+          x: (p.canvas.w - d.w) / 2,
+          y: (p.canvas.h - d.w / DEVICE_META[d.kind].aspect) / 2,
+          tilt: 0,
+          opacity: 1,
+        } : d)
+      }));
+    } else if (selection.kind === 'icon') {
+      update(p => ({
+        ...p,
+        icons: p.icons.map(i => i.id === selection.id ? {
+          ...i,
+          x: 0.5,
+          y: 0.5,
+          rotation: 0,
+          opacity: 1,
+        } : i)
+      }));
+    } else if (selection.kind === 'textbox') {
+      update(p => ({
+        ...p,
+        textboxes: p.textboxes.map(t => t.id === selection.id ? {
+          ...t,
+          x: 0.5,
+          y: 0.5,
+          rotation: 0,
+          opacity: 1,
+        } : t)
+      }));
+    } else if (selection.kind === 'deco') {
+      update(p => ({
+        ...p,
+        decos: p.decos.map(d => d.id === selection.id ? {
+          ...d,
+          x: 0.5,
+          y: 0.5,
+          rotation: 0,
+          opacity: 1,
+        } : d)
+      }));
+    }
+  };
+
+  return (
+    <div className="px-3.5 py-3 border-b border-line2">
+      <div className="flex items-center justify-between mb-2">
+        <div className="label-mono">Transform</div>
+        <button
+          className="text-[9px] px-2 py-0.5 rounded border border-line hover:border-acc hover:text-acc transition-colors"
+          onClick={handleReset}
+          disabled={isLocked}
+          title="Reset Transform"
+        >
+          Reset
+        </button>
+      </div>
+
+      {isLocked && (
+        <div className="text-[10px] text-acc mb-2 flex items-center gap-1">
+          <IcLock size={10} />
+          <span>Object Locked</span>
+        </div>
+      )}
+
+      <div className="grid grid-cols-2 gap-2">
+        {/* Position */}
+        <div>
+          <div className="text-[9px] text-dim mb-0.5">X</div>
+          <input
+            type="number"
+            className="input !py-1 !text-[11px]"
+            value={Math.round(selection.kind === 'device' ? obj.x : obj.x * project.canvas.w)}
+            onChange={(e) => {
+              checkpoint();
+              const val = parseFloat(e.target.value);
+              if (selection.kind === 'device') {
+                update(p => ({ ...p, devices: p.devices.map(d => d.id === selection.id ? { ...d, x: val } : d) }), false);
+              } else {
+                update(p => ({ ...p, [selection.kind === 'icon' ? 'icons' : selection.kind === 'textbox' ? 'textboxes' : 'decos']: p[selection.kind === 'icon' ? 'icons' : selection.kind === 'textbox' ? 'textboxes' : 'decos'].map((i: any) => i.id === selection.id ? { ...i, x: val / p.canvas.w } : i) }), false);
+              }
+            }}
+            disabled={isLocked}
+          />
+        </div>
+        <div>
+          <div className="text-[9px] text-dim mb-0.5">Y</div>
+          <input
+            type="number"
+            className="input !py-1 !text-[11px]"
+            value={Math.round(selection.kind === 'device' ? obj.y : obj.y * project.canvas.h)}
+            onChange={(e) => {
+              checkpoint();
+              const val = parseFloat(e.target.value);
+              if (selection.kind === 'device') {
+                update(p => ({ ...p, devices: p.devices.map(d => d.id === selection.id ? { ...d, y: val } : d) }), false);
+              } else {
+                update(p => ({ ...p, [selection.kind === 'icon' ? 'icons' : selection.kind === 'textbox' ? 'textboxes' : 'decos']: p[selection.kind === 'icon' ? 'icons' : selection.kind === 'textbox' ? 'textboxes' : 'decos'].map((i: any) => i.id === selection.id ? { ...i, y: val / p.canvas.h } : i) }), false);
+              }
+            }}
+            disabled={isLocked}
+          />
+        </div>
+
+        {/* Size (only for devices) */}
+        {selection.kind === 'device' && (
+          <>
+            <div>
+              <div className="text-[9px] text-dim mb-0.5">Width</div>
+              <input
+                type="number"
+                className="input !py-1 !text-[11px]"
+                value={Math.round(obj.w)}
+                onChange={(e) => {
+                  checkpoint();
+                  const val = parseFloat(e.target.value);
+                  update(p => ({ ...p, devices: p.devices.map(d => d.id === selection.id ? { ...d, w: val } : d) }), false);
+                }}
+                disabled={isLocked}
+              />
+            </div>
+            <div>
+              <div className="text-[9px] text-dim mb-0.5">Height</div>
+              <input
+                type="number"
+                className="input !py-1 !text-[11px]"
+                value={Math.round(obj.w / DEVICE_META[obj.kind as keyof typeof DEVICE_META].aspect)}
+                disabled
+                title="Height is calculated from width and aspect ratio"
+              />
+            </div>
+          </>
+        )}
+
+        {/* Rotation */}
+        <div>
+          <div className="text-[9px] text-dim mb-0.5">Rotation</div>
+          <input
+            type="number"
+            className="input !py-1 !text-[11px]"
+            value={Math.round(selection.kind === 'device' ? obj.tilt : obj.rotation)}
+            onChange={(e) => {
+              checkpoint();
+              const val = parseFloat(e.target.value);
+              if (selection.kind === 'device') {
+                update(p => ({ ...p, devices: p.devices.map(d => d.id === selection.id ? { ...d, tilt: val } : d) }), false);
+              } else {
+                update(p => ({ ...p, [selection.kind === 'icon' ? 'icons' : selection.kind === 'textbox' ? 'textboxes' : 'decos']: p[selection.kind === 'icon' ? 'icons' : selection.kind === 'textbox' ? 'textboxes' : 'decos'].map((i: any) => i.id === selection.id ? { ...i, rotation: val } : i) }), false);
+              }
+            }}
+            disabled={isLocked}
+          />
+        </div>
+
+        {/* Opacity */}
+        <div>
+          <div className="text-[9px] text-dim mb-0.5">Opacity</div>
+          <input
+            type="number"
+            className="input !py-1 !text-[11px]"
+            value={Math.round((obj.opacity ?? 1) * 100)}
+            min={0}
+            max={100}
+            onChange={(e) => {
+              checkpoint();
+              const val = parseFloat(e.target.value) / 100;
+              if (selection.kind === 'device') {
+                update(p => ({ ...p, devices: p.devices.map(d => d.id === selection.id ? { ...d, opacity: val } : d) }), false);
+              } else {
+                update(p => ({ ...p, [selection.kind === 'icon' ? 'icons' : selection.kind === 'textbox' ? 'textboxes' : 'decos']: p[selection.kind === 'icon' ? 'icons' : selection.kind === 'textbox' ? 'textboxes' : 'decos'].map((i: any) => i.id === selection.id ? { ...i, opacity: val } : i) }), false);
+              }
+            }}
+            disabled={isLocked}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function QuickActions() {
+  const selection = useStudio(s => s.selection);
+  const project = useStudio(s => s.project)!;
+  const update = useStudio(s => s.update);
+  const checkpoint = useStudio(s => s.checkpoint);
+  const toast = useStudio(s => s.toast);
+  const duplicateDevice = useStudio(s => s.duplicateDevice);
+  const removeDevice = useStudio(s => s.removeDevice);
+  const removeIcon = useStudio(s => s.removeIcon);
+  const removeTextBox = useStudio(s => s.removeTextBox);
+  const setSelection = useStudio(s => s.setSelection);
+  const lockedObjects = useStudio(s => s.lockedObjects);
+  const lockObject = useStudio(s => s.lockObject);
+  const unlockObject = useStudio(s => s.unlockObject);
+
+  if (!selection) return null;
+
+  const isLocked = selection.id ? lockedObjects.has(`${selection.kind}:${selection.id}`) : false;
+
+  const handleDuplicate = () => {
+    checkpoint();
+    if (selection.kind === 'device' && selection.id) {
+      duplicateDevice(selection.id);
+      toast('Duplicated');
+    } else if (selection.kind === 'icon' && selection.id) {
+      const icon = project.icons.find(i => i.id === selection.id);
+      if (icon) {
+        update(p => ({ ...p, icons: [...p.icons, { ...icon, id: Math.random().toString(36).slice(2), x: icon.x + 0.02, y: icon.y + 0.02 }] }));
+        toast('Icon duplicated');
+      }
+    } else if (selection.kind === 'textbox' && selection.id) {
+      const textbox = project.textboxes.find(t => t.id === selection.id);
+      if (textbox) {
+        update(p => ({ ...p, textboxes: [...p.textboxes, { ...textbox, id: Math.random().toString(36).slice(2), x: textbox.x + 0.02, y: textbox.y + 0.02 }] }));
+        toast('Text box duplicated');
+      }
+    } else if (selection.kind === 'deco' && selection.id) {
+      const deco = project.decos.find(d => d.id === selection.id);
+      if (deco) {
+        update(p => ({ ...p, decos: [...p.decos, { ...deco, id: Math.random().toString(36).slice(2), x: deco.x + 0.02, y: deco.y + 0.02 }] }));
+        toast('Decoration duplicated');
+      }
+    }
+  };
+
+  const handleDelete = () => {
+    checkpoint();
+    if (selection.kind === 'device' && selection.id) {
+      removeDevice(selection.id);
+      toast('Deleted');
+    } else if (selection.kind === 'icon' && selection.id) {
+      removeIcon(selection.id);
+      toast('Icon deleted');
+    } else if (selection.kind === 'textbox' && selection.id) {
+      removeTextBox(selection.id);
+      toast('Text box deleted');
+    } else if (selection.kind === 'deco' && selection.id) {
+      update(p => ({ ...p, decos: p.decos.filter(d => d.id !== selection.id) }));
+      setSelection(null);
+      toast('Decoration deleted');
+    }
+  };
+
+  const handleLock = () => {
+    if (selection.id) {
+      if (isLocked) {
+        unlockObject(selection.kind, selection.id);
+        toast('Unlocked');
+      } else {
+        lockObject(selection.kind, selection.id);
+        toast('Locked');
+      }
+    }
+  };
+
+  const handleToggleVisibility = () => {
+    checkpoint();
+    if (selection.kind === 'device' && selection.id) {
+      update(p => ({ ...p, devices: p.devices.map(d => d.id === selection.id ? { ...d, visible: !d.visible } : d) }));
+    } else if (selection.kind === 'icon' && selection.id) {
+      update(p => ({ ...p, icons: p.icons.map(i => i.id === selection.id ? { ...i, opacity: i.opacity > 0 ? 0 : 1 } : i) }));
+    } else if (selection.kind === 'textbox' && selection.id) {
+      update(p => ({ ...p, textboxes: p.textboxes.map(t => t.id === selection.id ? { ...t, opacity: t.opacity > 0 ? 0 : 1 } : t) }));
+    } else if (selection.kind === 'deco' && selection.id) {
+      update(p => ({ ...p, decos: p.decos.map(d => d.id === selection.id ? { ...d, opacity: d.opacity > 0 ? 0 : 1 } : d) }));
+    } else if (selection.kind === 'text') {
+      update(p => ({ ...p, text: { ...p.text, enabled: !p.text.enabled } }));
+    } else if (selection.kind === 'logo') {
+      update(p => ({ ...p, logo: { ...p.logo, enabled: !p.logo.enabled } }));
+    }
+  };
+
+  return (
+    <div className="px-3 py-2 border-b border-line2 bg-panel flex items-center gap-1">
+      <button className="icon-btn !w-7 !h-7" onClick={handleDuplicate} disabled={isLocked} title="Duplicate (Ctrl+D)">
+        <IcCopy size={13} />
+      </button>
+      <button className="icon-btn !w-7 !h-7 hover:!text-danger" onClick={handleDelete} disabled={isLocked} title="Delete (Del)">
+        <IcTrash size={13} />
+      </button>
+      <button className={`icon-btn !w-7 !h-7 ${isLocked ? 'text-acc' : ''}`} onClick={handleLock} title={isLocked ? 'Unlock' : 'Lock'}>
+        {isLocked ? <IcLock size={13} /> : <IcUnlock size={13} />}
+      </button>
+      <button className="icon-btn !w-7 !h-7" onClick={handleToggleVisibility} disabled={isLocked} title="Toggle Visibility">
+        <IcEye size={13} />
+      </button>
+      <div className="flex-1" />
+      <button className="icon-btn !w-7 !h-7" onClick={() => { checkpoint(); if (selection.kind === 'device' && selection.id) { update(p => ({ ...p, devices: p.devices.map(d => d.id === selection.id ? { ...d, z: d.z + 1 } : d) })); toast('Brought forward'); } }} disabled={isLocked} title="Bring Forward">
+        <IcUp size={13} />
+      </button>
+      <button className="icon-btn !w-7 !h-7" onClick={() => { checkpoint(); if (selection.kind === 'device' && selection.id) { update(p => ({ ...p, devices: p.devices.map(d => d.id === selection.id ? { ...d, z: d.z - 1 } : d) })); toast('Sent backward'); } }} disabled={isLocked} title="Send Backward">
+        <IcDown size={13} />
+      </button>
     </div>
   );
 }
@@ -786,97 +1116,155 @@ function IconProps({ i }: { i: import('../types').IconLayer }) {
 }
 
 function LayersList() {
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filterType, setFilterType] = useState<string>('all');
   const project = useStudio(s => s.project)!;
   const selection = useStudio(s => s.selection);
   const setSelection = useStudio(s => s.setSelection);
   const update = useStudio(s => s.update);
   const checkpoint = useStudio(s => s.checkpoint);
   const reorderDevice = useStudio(s => s.reorderDevice);
-
+  const lockedObjects = useStudio(s => s.lockedObjects);
+  
   const rowCls = (on: boolean) =>
     `w-full flex items-center gap-2 px-2 py-1.5 rounded-md cursor-pointer transition-colors text-left ${on ? 'bg-[rgba(255,107,61,0.1)]' : 'hover:bg-panel2'}`;
 
+  // Build layers array with type info
+  const allLayers = [
+    ...project.devices.map(d => ({ id: d.id, kind: 'device' as const, name: d.name, visible: d.visible, locked: lockedObjects.has(`device:${d.id}`) })),
+    ...project.textboxes.map((tb: any) => ({ id: tb.id, kind: 'textbox' as const, name: tb.text?.slice(0, 20) || 'Text Box', visible: tb.opacity > 0, locked: lockedObjects.has(`textbox:${tb.id}`) })),
+    ...project.icons.map((icon: any) => ({ id: icon.id, kind: 'icon' as const, name: 'Icon', visible: icon.opacity > 0, locked: lockedObjects.has(`icon:${icon.id}`) })),
+    ...project.decos.map((deco: any) => ({ id: deco.id, kind: 'deco' as const, name: 'Decoration', visible: deco.opacity > 0, locked: lockedObjects.has(`deco:${deco.id}`) })),
+    { id: 'text', kind: 'text' as const, name: 'Text block', visible: project.text?.enabled ?? true, locked: lockedObjects.has('text:main') },
+    { id: 'logo', kind: 'logo' as const, name: 'Logo', visible: project.logo?.enabled ?? false, locked: lockedObjects.has('logo:main') },
+    { id: 'background', kind: 'background' as const, name: 'Background', visible: true, locked: false },
+  ];
+
+  // Filter layers
+  const filteredLayers = allLayers.filter(layer => {
+    // Search filter
+    if (searchQuery && !layer.name.toLowerCase().includes(searchQuery.toLowerCase())) {
+      return false;
+    }
+    // Type filter
+    if (filterType !== 'all' && layer.kind !== filterType) {
+      return false;
+    }
+    return true;
+  });
+  
   return (
     <Section title="Layers" right={<IcLayers size={13} />}>
-      <div className="space-y-0.5">
-        {[...project.devices].reverse().map(d => {
-          const on = selection?.kind === 'device' && selection.id === d.id;
-          return (
-            <div key={d.id} className={rowCls(!!on)} onClick={() => setSelection({ kind: 'device', id: d.id })}
-              style={on ? { boxShadow: 'inset 2px 0 0 var(--color-acc)' } : undefined}>
-              <button className="icon-btn !w-6 !h-6" onClick={(e) => { e.stopPropagation(); checkpoint(); update(p => ({ ...p, devices: p.devices.map(x => x.id === d.id ? { ...x, visible: !x.visible } : x) }), false); }}>
-                {d.visible ? <IcEye size={12} /> : <IcEyeOff size={12} />}
-              </button>
-              <span className="flex-1 text-[12px] truncate" style={{ opacity: d.visible ? 1 : 0.45 }}>{d.name}</span>
-              <button className="icon-btn !w-5 !h-5" onClick={(e) => { e.stopPropagation(); reorderDevice(d.id, 1); }}><IcArrowL size={10} className="rotate-90" /></button>
-            </div>
-          );
-        })}
+      {/* Search */}
+      <div className="mb-2">
+        <input
+          type="text"
+          className="input !py-1 !text-[11px]"
+          placeholder="Search layers..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+        />
+      </div>
 
-        {project.textboxes?.map((tb: any) => {
-          const on = selection?.kind === 'textbox' && selection.id === tb.id;
-          return (
-            <div key={tb.id} className={rowCls(!!on)} onClick={() => setSelection({ kind: 'textbox', id: tb.id })}
-              style={on ? { boxShadow: 'inset 2px 0 0 var(--color-acc)' } : undefined}>
-              <button className="icon-btn !w-6 !h-6" onClick={(e) => { e.stopPropagation(); checkpoint(); update(p => ({ ...p, textboxes: p.textboxes.map(x => x.id === tb.id ? { ...x, opacity: x.opacity === 0 ? 1 : 0 } : x) }), false); }}>
-                <IcEye size={12} />
-              </button>
-              <span className="flex-1 text-[12px] truncate">{tb.name || 'Text Box'}</span>
-              <button className="icon-btn !w-5 !h-5 hover:!text-danger" onClick={(e) => { e.stopPropagation(); checkpoint(); update(p => ({ ...p, textboxes: p.textboxes.filter(x => x.id !== tb.id) }), false); }}>
-                <IcTrash size={10} />
-              </button>
-            </div>
-          );
-        })}
+      {/* Filter */}
+      <div className="flex gap-1 mb-2 overflow-x-auto">
+        {[
+          { id: 'all', label: 'All' },
+          { id: 'device', label: 'Devices' },
+          { id: 'textbox', label: 'Text' },
+          { id: 'icon', label: 'Icons' },
+          { id: 'deco', label: 'Deco' },
+        ].map(f => (
+          <button
+            key={f.id}
+            className={`px-2 py-0.5 text-[9px] rounded border whitespace-nowrap transition-colors ${
+              filterType === f.id 
+                ? 'border-acc bg-acc/10 text-acc' 
+                : 'border-line bg-panel text-mut hover:border-acc/50'
+            }`}
+            onClick={() => setFilterType(f.id)}
+          >
+            {f.label}
+          </button>
+        ))}
+      </div>
 
-        {project.icons?.map((icon: any) => {
-          const on = selection?.kind === 'icon' && selection.id === icon.id;
-          return (
-            <div key={icon.id} className={rowCls(!!on)} onClick={() => setSelection({ kind: 'icon', id: icon.id })}
-              style={on ? { boxShadow: 'inset 2px 0 0 var(--color-acc)' } : undefined}>
-              <button className="icon-btn !w-6 !h-6" onClick={(e) => { e.stopPropagation(); checkpoint(); update(p => ({ ...p, icons: p.icons.map(x => x.id === icon.id ? { ...x, opacity: x.opacity === 0 ? 1 : 0 } : x) }), false); }}>
-                <IcEye size={12} />
-              </button>
-              <span className="flex-1 text-[12px] truncate">Icon</span>
-              <button className="icon-btn !w-5 !h-5 hover:!text-danger" onClick={(e) => { e.stopPropagation(); checkpoint(); update(p => ({ ...p, icons: p.icons.filter(x => x.id !== icon.id) }), false); }}>
-                <IcTrash size={10} />
-              </button>
-            </div>
-          );
-        })}
+      {/* Layers */}
+      <div className="space-y-0.5 max-h-[400px] overflow-y-auto">
+        {filteredLayers.length === 0 ? (
+          <div className="text-center py-4 text-[11px]" style={{ color: 'var(--color-dim)' }}>
+            {searchQuery || filterType !== 'all' ? 'No layers found' : 'No layers yet'}
+          </div>
+        ) : (
+          filteredLayers.map(layer => {
+            const on = selection?.kind === layer.kind && selection.id === layer.id;
+            return (
+              <div 
+                key={`${layer.kind}-${layer.id}`} 
+                className={rowCls(!!on)} 
+                onClick={() => setSelection({ kind: layer.kind, id: layer.id })}
+                style={on ? { boxShadow: 'inset 2px 0 0 var(--color-acc)' } : undefined}
+              >
+                {/* Visibility */}
+                <button 
+                  className="icon-btn !w-6 !h-6" 
+                  onClick={(e) => { 
+                    e.stopPropagation(); 
+                    checkpoint();
+                    if (layer.kind === 'device') {
+                      update(p => ({ ...p, devices: p.devices.map(x => x.id === layer.id ? { ...x, visible: !x.visible } : x) }), false);
+                    } else if (layer.kind === 'textbox') {
+                      update(p => ({ ...p, textboxes: p.textboxes.map(x => x.id === layer.id ? { ...x, opacity: x.opacity === 0 ? 1 : 0 } : x) }), false);
+                    } else if (layer.kind === 'icon') {
+                      update(p => ({ ...p, icons: p.icons.map(x => x.id === layer.id ? { ...x, opacity: x.opacity === 0 ? 1 : 0 } : x) }), false);
+                    } else if (layer.kind === 'deco') {
+                      update(p => ({ ...p, decos: p.decos.map(x => x.id === layer.id ? { ...x, opacity: x.opacity === 0 ? 1 : 0 } : x) }), false);
+                    } else if (layer.kind === 'text') {
+                      update(p => ({ ...p, text: { ...p.text, enabled: !p.text.enabled } }), false);
+                    } else if (layer.kind === 'logo') {
+                      update(p => ({ ...p, logo: { ...p.logo, enabled: !p.logo.enabled } }), false);
+                    }
+                  }}
+                  disabled={layer.locked}
+                >
+                  {layer.visible ? <IcEye size={12} /> : <IcEyeOff size={12} />}
+                </button>
 
-        {project.decos?.map((deco: any) => {
-          const on = selection?.kind === 'deco' && selection.id === deco.id;
-          return (
-            <div key={deco.id} className={rowCls(!!on)} onClick={() => setSelection({ kind: 'deco', id: deco.id })}
-              style={on ? { boxShadow: 'inset 2px 0 0 var(--color-acc)' } : undefined}>
-              <button className="icon-btn !w-6 !h-6" onClick={(e) => { e.stopPropagation(); checkpoint(); update(p => ({ ...p, decos: p.decos.map(x => x.id === deco.id ? { ...x, opacity: x.opacity === 0 ? 1 : 0 } : x) }), false); }}>
-                <IcEye size={12} />
-              </button>
-              <span className="flex-1 text-[12px] truncate">Decoration</span>
-              <button className="icon-btn !w-5 !h-5 hover:!text-danger" onClick={(e) => { e.stopPropagation(); checkpoint(); update(p => ({ ...p, decos: p.decos.filter(x => x.id !== deco.id) }), false); }}>
-                <IcTrash size={10} />
-              </button>
-            </div>
-          );
-        })}
+                {/* Name */}
+                <span className="flex-1 text-[12px] truncate" style={{ opacity: layer.visible ? 1 : 0.45 }}>
+                  {layer.locked && <span className="mr-1">🔒</span>}
+                  {layer.name}
+                </span>
 
-        {([
-          { kind: 'text' as const, label: 'Text block', on: project.text?.enabled ?? true, toggle: () => update(p => ({ ...p, text: { ...p.text, enabled: !(p.text?.enabled ?? true) } }), false) },
-          { kind: 'logo' as const, label: 'Logo', on: project.logo?.enabled ?? false, toggle: () => update(p => ({ ...p, logo: { ...p.logo, enabled: !(p.logo?.enabled ?? false) } }), false) },
-          { kind: 'background' as const, label: 'Background', on: true, toggle: () => undefined },
-        ]).map(l => {
-          const on = selection?.kind === l.kind;
-          return (
-            <div key={l.kind} className={rowCls(!!on)} onClick={() => setSelection({ kind: l.kind })}
-              style={on ? { boxShadow: 'inset 2px 0 0 var(--color-acc)' } : undefined}>
-              <button className="icon-btn !w-6 !h-6" onClick={(e) => { e.stopPropagation(); checkpoint(); l.toggle(); }}>
-                {l.on ? <IcEye size={12} /> : <IcEyeOff size={12} />}
-              </button>
-              <span className="flex-1 text-[12px]" style={{ opacity: l.on ? 1 : 0.45 }}>{l.label}</span>
-            </div>
-          );
-        })}
+                {/* Actions */}
+                {layer.kind === 'device' && (
+                  <button className="icon-btn !w-5 !h-5" onClick={(e) => { e.stopPropagation(); reorderDevice(layer.id, 1); }}>
+                    <IcArrowL size={10} className="rotate-90" />
+                  </button>
+                )}
+                {(layer.kind === 'textbox' || layer.kind === 'icon' || layer.kind === 'deco') && (
+                  <button 
+                    className="icon-btn !w-5 !h-5 hover:!text-danger" 
+                    onClick={(e) => { 
+                      e.stopPropagation(); 
+                      checkpoint();
+                      if (layer.kind === 'textbox') {
+                        update(p => ({ ...p, textboxes: p.textboxes.filter(x => x.id !== layer.id) }), false);
+                      } else if (layer.kind === 'icon') {
+                        update(p => ({ ...p, icons: p.icons.filter(x => x.id !== layer.id) }), false);
+                      } else if (layer.kind === 'deco') {
+                        update(p => ({ ...p, decos: p.decos.filter(x => x.id !== layer.id) }), false);
+                      }
+                    }}
+                    disabled={layer.locked}
+                  >
+                    <IcTrash size={10} />
+                  </button>
+                )}
+              </div>
+            );
+          })
+        )}
       </div>
     </Section>
   );
