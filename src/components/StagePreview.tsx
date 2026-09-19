@@ -1001,6 +1001,9 @@ function CanvasImageLayer({ canvasImage, canvasW, canvasH, onDragStart, onDragEn
   const asset = project.assets.find(a => a.id === canvasImage.assetId);
   if (!asset) return null;
   
+  // Hide if visible is false
+  if (canvasImage.visible === false) return null;
+  
   const onDown = (e: RPointerEvent<HTMLDivElement>) => {
     e.stopPropagation();
     
@@ -1768,7 +1771,7 @@ export function StagePreview({ toolMode = 'select', onContextMenu }: { toolMode?
             {p.textboxes.map(textbox => (
               <TextBoxLayer key={textbox.id} textbox={textbox} canvasW={p.canvas.w} canvasH={p.canvas.h} onDragStart={() => setIsDragging(true)} onDragEnd={() => setIsDragging(false)} />
             ))}
-            {p.canvasImages?.map(canvasImage => (
+            {p.canvasImages?.sort((a, b) => a.z - b.z).map(canvasImage => (
               <CanvasImageLayer key={canvasImage.id} canvasImage={canvasImage} canvasW={p.canvas.w} canvasH={p.canvas.h} onDragStart={() => setIsDragging(true)} onDragEnd={() => setIsDragging(false)} guides={guides} setGuides={setGuides} setDistanceInfo={setDistanceInfo} />
             ))}
             <LogoOverlay p={p} />
