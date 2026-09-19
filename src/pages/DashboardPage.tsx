@@ -10,8 +10,10 @@ export function DashboardPage() {
   const openProject = useStudio(s => s.openProject);
   const createProject = useStudio(s => s.createProject);
 
-  const handleCreateProject = () => {
-    createProject('Untitled Project', 'Website', 1600, 1000);
+  const handleCreateProject = async () => {
+    await createProject('Untitled Project', 'Website', 1600, 1000);
+    // Navigate directly to editor after creating project
+    window.location.href = '/editor';
   };
 
   const handleLogout = () => {
@@ -49,7 +51,7 @@ export function DashboardPage() {
         {/* Welcome Section */}
         <div className="mb-12">
           <h1 className="text-4xl font-bold mb-2" style={{ fontFamily: 'var(--font-disp)' }}>
-            Welcome back, {user?.name?.split(' ')[0]}! 👋
+            Welcome back, {user?.name?.split(' ')[0]}!
           </h1>
           <p className="text-lg" style={{ color: 'var(--color-mut)' }}>
             {user?.emailVerified ? 'Your account is verified' : 'Please verify your email'}
@@ -57,45 +59,21 @@ export function DashboardPage() {
         </div>
 
         {/* Quick Actions */}
-        <div className="grid md:grid-cols-3 gap-6 mb-12">
+        <div className="mb-12">
           <button
             onClick={handleCreateProject}
-            className="card card-hover p-6 text-left"
+            className="card card-hover p-8 text-left w-full"
           >
-            <div className="w-12 h-12 rounded-lg bg-acc/10 flex items-center justify-center mb-4 text-acc">
-              <IcPlus size={24} />
+            <div className="w-16 h-16 rounded-lg bg-acc/10 flex items-center justify-center mb-4 text-acc">
+              <IcPlus size={32} />
             </div>
-            <h3 className="text-xl font-bold mb-2" style={{ fontFamily: 'var(--font-disp)' }}>
+            <h3 className="text-2xl font-bold mb-2" style={{ fontFamily: 'var(--font-disp)' }}>
               Create New Project
             </h3>
             <p style={{ color: 'var(--color-mut)' }}>
               Start a new mockup project from scratch
             </p>
           </button>
-
-          <Link to="/templates" className="card card-hover p-6">
-            <div className="w-12 h-12 rounded-lg bg-acc2/10 flex items-center justify-center mb-4 text-acc2">
-              <IcFolder size={24} />
-            </div>
-            <h3 className="text-xl font-bold mb-2" style={{ fontFamily: 'var(--font-disp)' }}>
-              Templates
-            </h3>
-            <p style={{ color: 'var(--color-mut)' }}>
-              Browse professional templates
-            </p>
-          </Link>
-
-          <Link to="/assets" className="card card-hover p-6">
-            <div className="w-12 h-12 rounded-lg bg-gold/10 flex items-center justify-center mb-4 text-gold">
-              <IcStar size={24} />
-            </div>
-            <h3 className="text-xl font-bold mb-2" style={{ fontFamily: 'var(--font-disp)' }}>
-              My Assets
-            </h3>
-            <p style={{ color: 'var(--color-mut)' }}>
-              Manage your uploaded assets
-            </p>
-          </Link>
         </div>
 
         {/* Recent Projects */}
@@ -139,7 +117,10 @@ export function DashboardPage() {
               {projects.slice(0, 6).map(project => (
                 <button
                   key={project.id}
-                  onClick={() => openProject(project.id)}
+                  onClick={async () => {
+                    await openProject(project.id);
+                    window.location.href = '/editor';
+                  }}
                   className="card card-hover overflow-hidden text-left"
                 >
                   {project.thumbnail ? (

@@ -143,25 +143,30 @@ export function ProfilePage() {
           </div>
         </div>
 
-        {/* Security */}
-        <div className="card p-8 mb-6">
-          <h2 className="text-xl font-bold mb-6" style={{ fontFamily: 'var(--font-disp)' }}>
-            Security
-          </h2>
-          
-          <div className="space-y-4">
-            <button className="btn w-full justify-between">
-              <span>Change Password</span>
-              <IcSettings size={16} />
-            </button>
+          {/* Security */}
+          <div className="card p-8 mb-6">
+            <h2 className="text-xl font-bold mb-6" style={{ fontFamily: 'var(--font-disp)' }}>
+              Security
+            </h2>
             
-            <button className="btn w-full justify-between">
-              <span>Two-Factor Authentication</span>
-              <span className="text-xs px-2 py-1 rounded bg-gold/20 text-gold">Coming Soon</span>
-            </button>
+            <div className="space-y-4">
+              <button 
+                onClick={() => navigate('/forgot-password')}
+                className="btn w-full justify-between"
+              >
+                <span>Change Password</span>
+                <IcSettings size={16} />
+              </button>
+              
+              <button 
+                className="btn w-full justify-between opacity-50 cursor-not-allowed"
+                disabled
+              >
+                <span>Two-Factor Authentication</span>
+                <span className="text-xs px-2 py-1 rounded bg-gold/20 text-gold">Coming Soon</span>
+              </button>
+            </div>
           </div>
-        </div>
-
         {/* Danger Zone */}
         <div className="card p-8" style={{ borderColor: 'var(--color-danger)', borderWidth: '1px' }}>
           <h2 className="text-xl font-bold mb-2" style={{ fontFamily: 'var(--font-disp)', color: 'var(--color-danger)' }}>
